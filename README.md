@@ -1,2 +1,5 @@
 # RA Prater Co. Website
-Upload all files to the repository root, then enable GitHub Pages from main / root.
+
+Static GitHub Pages website for Russell Prater, REALTOR®.
+
+Upload all files to the repository root, then deploy main / (root) in GitHub Pages.
