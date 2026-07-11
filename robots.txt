@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://www.praterco.com/sitemap.xml
