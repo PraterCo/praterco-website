@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 760">
+<defs>
+  <linearGradient id="g" x1="0" x2="1" y1="0" y2="1">
+    <stop stop-color="#071b33"/>
+    <stop offset="1" stop-color="#2b5a86"/>
+  </linearGradient>
+</defs>
+<rect width="1200" height="760" fill="url(#g)"/>
+<circle cx="990" cy="120" r="110" fill="#c79a46" opacity=".28"/>
+<path d="M0 565L165 430L325 520L470 380L625 510L770 350L935 500L1070 390L1200 470V760H0Z" fill="#fff" opacity=".08"/>
+<rect x="75" y="515" width="720" height="3" fill="#c79a46"/>
+<text x="75" y="610" fill="#fff" font-family="Arial" font-size="58" font-weight="700">SACRAMENTO</text>
+<text x="78" y="661" fill="#d8e1eb" font-family="Arial" font-size="25">Replace with a licensed Sacramento skyline or local property image.</text>
+</svg>
