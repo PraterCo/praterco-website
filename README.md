@@ -1,5 +1,11 @@
-# RA Prater Co. Website
+# RA Prater Co. V3
 
-Static GitHub Pages website for Russell Prater, REALTOR®.
+Static HTML/CSS website for Russell Prater, REALTOR®.
 
-Upload all files to the repository root, then deploy main / (root) in GitHub Pages.
+## Deployment
+Connect this repository to Hostinger Git deployment and deploy to `public_html`.
+
+## Before final launch
+- Replace SVG placeholder images with licensed photography.
+- Replace the mailto contact form with a secure form or CRM integration.
+- Confirm final brokerage advertising requirements and privacy policy.
