@@ -21,6 +21,9 @@ header{position:sticky;top:0;z-index:50;background:rgba(255,255,255,.96);backdro
 .btn-gold:hover{background:#ad8139;transform:translateY(-1px)}
 .btn-ghost{border-color:rgba(255,255,255,.55);color:#fff}
 .btn-ghost:hover{background:#fff;color:var(--navy)}
+.btn-outline{background:#fff;border-color:var(--line);color:var(--navy)}
+.btn-outline:hover{border-color:var(--gold);color:var(--red);transform:translateY(-1px)}
+.btn-disabled{background:#eef2f6;color:#657080;border-color:#d6dde6;cursor:not-allowed}
 .hero{min-height:690px;background:linear-gradient(90deg,rgba(4,18,35,.98) 0%,rgba(4,18,35,.86) 44%,rgba(4,18,35,.2) 78%),url('assets/hero.svg') center/cover}
 .hero-inner{padding:92px 0 76px;max-width:760px;color:#fff}
 .eyebrow{font-size:.78rem;text-transform:uppercase;letter-spacing:.18em;font-weight:900;color:var(--gold)}
@@ -62,6 +65,15 @@ h3{font-size:1.55rem}
 .cta{background:linear-gradient(120deg,var(--navy),var(--navy2));padding:76px 0;color:#fff}
 .cta h2{color:#fff}
 .cta-row{display:flex;justify-content:space-between;align-items:center;gap:28px}
+.contact-main{background:var(--cream)}
+.contact-card-section{min-height:calc(100vh - 92px);display:flex;align-items:center;padding:48px 0}
+.contact-card{max-width:520px;margin:0 auto;text-align:center;background:#fff;border:1px solid var(--line);border-radius:8px;padding:34px 22px;box-shadow:0 18px 46px rgba(7,27,51,.08)}
+.contact-logo{width:min(250px,78vw);margin:0 auto 24px}
+.contact-card h1{color:var(--navy);font-size:clamp(2.45rem,10vw,4.1rem);letter-spacing:0}
+.contact-card p{margin:0 auto 26px;color:var(--muted);max-width:340px}
+.contact-actions{display:grid;grid-template-columns:1fr;gap:12px;margin:0 auto 26px;max-width:360px}
+.contact-details{display:grid;gap:6px;color:var(--navy);font-weight:750}
+.contact-details a:hover{color:var(--red)}
 .contact-grid{display:grid;grid-template-columns:1fr 1fr;gap:42px}
 .form{display:grid;gap:14px}
 .form input,.form textarea,.form select{width:100%;padding:14px;border:1px solid #ccd4dd;border-radius:7px;font:inherit}
@@ -84,9 +96,15 @@ footer a{display:block;margin:7px 0}
   .split,.contact-grid{grid-template-columns:1fr}
   .footer-grid{grid-template-columns:repeat(2,1fr)}
 }
+@media(min-width:700px){
+  .contact-actions{grid-template-columns:1fr 1fr}
+  .contact-actions .btn{min-height:54px}
+}
 @media(max-width:640px){
   .hero{min-height:auto}.hero-inner{padding:62px 0}
   h1{font-size:3.25rem}
   .proof,.grid4,.grid3,.feature-grid,.stats,.communities,.footer-grid{grid-template-columns:1fr}
   .head,.cta-row{align-items:flex-start;flex-direction:column}
+  .contact-card-section{padding:28px 0}
+  .contact-card{padding:28px 16px}
 }
