@@ -22,7 +22,13 @@
 </div></header>
 
 <main>
-<section class="hero"><div class="container hero-inner">
+<section class="hero hero-slider" aria-label="Greater Sacramento service areas">
+  <div class="hero-slide is-active" data-area="Sacramento" style="background-image:url('assets/sacramento-twilight.jpg')"></div>
+  <div class="hero-slide" data-area="Arden-Arcade" style="background-image:url('assets/arden-arcade-aerial.jpg')"></div>
+  <div class="hero-slide" data-area="Carmichael" style="background-image:url('assets/carmichael-aerial.jpg')"></div>
+  <div class="hero-slide" data-area="Fair Oaks" style="background-image:url('assets/fair-oaks-aerial.jpg')"></div>
+  <div class="hero-overlay"></div>
+  <div class="container hero-inner">
   <div class="eyebrow">Greater Sacramento Real Estate</div>
   <h1>Real estate doesn't have to be complicated.</h1>
   <p>Whether you're buying your first home, selling a place you've loved for years, investing, or simply trying to understand your options, I'm here to help you ask the right questions and make a decision you feel good about.</p>
@@ -31,6 +37,17 @@
     <div><strong>Reliable</strong><span>I show up, communicate, and do what I say I'll do.</span></div>
     <div><strong>Accountable</strong><span>You'll get honest advice, even when the answer is not easy.</span></div>
     <div><strong>Proven</strong><span>Eight years and more than 50 transactions across residential and commercial real estate.</span></div>
+  </div>
+  <div class="slider-ui" aria-label="Choose hero image">
+    <button class="slider-arrow slider-prev" type="button" aria-label="Previous image">&#8249;</button>
+    <div class="slider-dots" role="tablist" aria-label="Service area images">
+      <button class="slider-dot is-active" type="button" aria-label="Sacramento" aria-selected="true"></button>
+      <button class="slider-dot" type="button" aria-label="Arden-Arcade" aria-selected="false"></button>
+      <button class="slider-dot" type="button" aria-label="Carmichael" aria-selected="false"></button>
+      <button class="slider-dot" type="button" aria-label="Fair Oaks" aria-selected="false"></button>
+    </div>
+    <div class="slider-label" aria-live="polite">Sacramento</div>
+    <button class="slider-arrow slider-next" type="button" aria-label="Next image">&#8250;</button>
   </div>
 </div></section>
 
@@ -86,4 +103,38 @@
 </div>
 <div class="legal">Russell Prater, REALTOR®, CA DRE #02012559. Broker: RE/MAX Gold, CA DRE #01215931. Each office independently owned and operated. Equal Housing Opportunity. Information is believed reliable but is not guaranteed. Nothing on this website is legal, tax, lending, construction, engineering, or investment advice. Consult appropriately licensed professionals. <a href="https://www.remax.com/privacy-notice" target="_blank" rel="noopener">Privacy Notice</a>.</div>
 </div></footer>
+
+<script>
+(() => {
+  const slides = [...document.querySelectorAll('.hero-slide')];
+  const dots = [...document.querySelectorAll('.slider-dot')];
+  const label = document.querySelector('.slider-label');
+  const hero = document.querySelector('.hero-slider');
+  let current = 0;
+  let timer;
+
+  function show(index) {
+    current = (index + slides.length) % slides.length;
+    slides.forEach((slide, i) => slide.classList.toggle('is-active', i === current));
+    dots.forEach((dot, i) => {
+      const active = i === current;
+      dot.classList.toggle('is-active', active);
+      dot.setAttribute('aria-selected', active ? 'true' : 'false');
+    });
+    label.textContent = slides[current].dataset.area;
+  }
+
+  function restart() {
+    clearInterval(timer);
+    timer = setInterval(() => show(current + 1), 8000);
+  }
+
+  document.querySelector('.slider-prev').addEventListener('click', () => { show(current - 1); restart(); });
+  document.querySelector('.slider-next').addEventListener('click', () => { show(current + 1); restart(); });
+  dots.forEach((dot, i) => dot.addEventListener('click', () => { show(i); restart(); }));
+  hero.addEventListener('mouseenter', () => clearInterval(timer));
+  hero.addEventListener('mouseleave', restart);
+  restart();
+})();
+</script>
 </body></html>
