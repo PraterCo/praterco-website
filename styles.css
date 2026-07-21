@@ -41,8 +41,9 @@ h3{font-size:1.55rem}
 .grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:18px}
 .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:22px}
 .card{background:#fff;border:1px solid var(--line);border-radius:16px;overflow:hidden;box-shadow:0 10px 28px rgba(7,27,51,.06);transition:.22s}
-.card:hover{transform:translateY(-5px);box-shadow:var(--shadow)}
-.card img{width:100%;height:210px;object-fit:cover}
+.card:hover{transform:translateY(-6px);box-shadow:var(--shadow)}
+.card:hover img{transform:scale(1.05);filter:saturate(1.04)}
+.card img{width:100%;height:210px;object-fit:cover;transition:transform .45s ease,filter .3s ease}
 .card-body{padding:25px}
 .card p{color:var(--muted)}
 .card-link{font-size:.87rem;font-weight:900;color:var(--navy2)}
