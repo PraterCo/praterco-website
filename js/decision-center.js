@@ -13,7 +13,8 @@
   const state = {
     step: 0,
     answers: {},
-    history: []
+    history: [],
+    insightShown: false
   };
 
   const questions = [
@@ -46,10 +47,10 @@
       ],
       reply: value => ({
         space: 'That is one of the most common reasons people begin thinking about a move. The next question is usually whether moving now creates enough benefit to justify the disruption.',
-        downsize: 'Downsizing is rarely just about square footage. It is usually about making life simpler, lowering responsibility, or creating more flexibility.',
+        downsize: 'Downsizing is rarely just about square footage. It is often connected to simplicity, responsibility, monthly cost, or flexibility.',
         life: 'Life changes can make timing feel urgent even when the real estate decision still needs to be handled carefully.',
-        financial: 'Understood. When finances are part of the decision, net proceeds and timing usually matter more than the headline sale price.',
-        investment: 'That makes sense. With an investment property, the best decision often comes down to return, tax considerations, and what the capital could do elsewhere.',
+        financial: 'Understood. When finances are part of the decision, estimated net proceeds and timing may matter more than the headline sale price.',
+        investment: 'That makes sense. With an investment property, the decision may involve return, tax considerations, risk, and what the capital could do elsewhere.',
         other: 'Every situation is a little different. The goal here is to understand what matters most before deciding what to do next.'
       })[value]
     },
@@ -65,8 +66,8 @@
       reply: value => ({
         soon: 'That gives us a real planning window. The priority is deciding what truly needs attention and what can be left alone.',
         year: 'That is enough time to be thoughtful without over-preparing. A simple plan now can prevent rushed decisions later.',
-        later: 'That flexibility is valuable. You can make choices based on what creates the best outcome instead of reacting to a deadline.',
-        unsure: 'Perfectly okay. Not having a fixed timeline often gives you more options, not fewer.'
+        later: 'That flexibility is valuable. You may be able to make choices based on value and fit instead of reacting to a deadline.',
+        unsure: 'Perfectly okay. Not having a fixed timeline may give you more options, not fewer.'
       })[value]
     },
     {
@@ -81,10 +82,10 @@
       ],
       reply: value => ({
         ready: 'Good. That may give you more control over timing and reduce the number of decisions you need to make before listing.',
-        mostly: 'That is a strong place to be. Usually the question becomes which small improvements are actually worth doing.',
-        cosmetic: 'Good news: cosmetic work usually gives you options. The key is not spending money where buyers will not reward it.',
-        repairs: 'That does not automatically mean you need to fix everything. It means the sale strategy should account for cost, time, risk, and the likely buyer pool.',
-        unknown: 'That is common. Homeowners often know how the house feels to live in but not how buyers will view it.'
+        mostly: 'That is a strong place to be. The next question is usually which small improvements, if any, are worth doing.',
+        cosmetic: 'Cosmetic work usually gives you choices. The important part is testing the likely cost against what buyers in your specific market may actually value.',
+        repairs: 'That does not automatically mean you need to fix everything. It means the sale strategy should account for cost, time, risk, financing, and the likely buyer pool.',
+        unknown: 'That is common. Homeowners know how the house feels to live in, but may not know how buyers will view it.'
       })[value]
     },
     {
@@ -98,11 +99,11 @@
         ['balance', 'Finding the right balance']
       ],
       reply: value => ({
-        price: 'That is helpful. Maximizing price usually means being deliberate about preparation, positioning, and how much uncertainty you are willing to accept.',
-        simple: 'That is a valid priority. The highest number is not always the best outcome if getting there creates more work, delay, or risk than you want.',
-        stress: 'Understood. A predictable plan and clear communication may matter more to you than squeezing every last dollar out of the sale.',
+        price: 'That is helpful. Pursuing the strongest price may require more preparation, broader market exposure, and some tolerance for uncertainty.',
+        simple: 'That is a valid priority. The highest number is not always the best overall outcome if reaching it creates more work, delay, or risk than you want.',
+        stress: 'Understood. A predictable plan and clear communication may be more important to you than squeezing every possible dollar out of the sale.',
         speed: 'That makes sense. Speed can be valuable, but it is worth separating a genuinely time-sensitive move from a desire to simply get the process over with.',
-        balance: 'That is where most people land. The real decision is how to balance price, timing, effort, and certainty in a way that fits your life.'
+        balance: 'That is where many people land. The real decision is how to balance price, timing, effort, and certainty in a way that fits your life.'
       })[value]
     },
     {
@@ -116,9 +117,9 @@
         ['unsure', 'I am not sure yet']
       ],
       reply: value => ({
-        before: 'That is one of the biggest planning decisions in the entire process. Financing, contingency strength, and temporary housing options all matter here.',
-        after: 'That can reduce financial risk, though it may create a gap between homes. It is worth planning for both the ideal outcome and the backup plan.',
-        same: 'Coordinating both sides is possible, but it works best when expectations and fallback options are clear before the home goes on the market.',
+        before: 'That is one of the biggest planning decisions in the process. Financing, contingency strength, carrying costs, and backup housing options may all matter.',
+        after: 'That may reduce financial risk, though it can create a gap between homes. It helps to plan for both the ideal outcome and a backup plan.',
+        same: 'Coordinating both sides is possible, but it works best when expectations, financing, and fallback options are clear before the home goes on the market.',
         no: 'That simplifies the timing considerably and may give you more negotiating flexibility.',
         unsure: 'That is worth resolving early because the answer can change your timeline, financing options, and negotiation strategy.'
       })[value]
@@ -153,17 +154,33 @@
   }
 
   function addHistory(question, answer, reply) {
-    state.history.push({ question, answer, reply });
+    state.history.push({ type: 'exchange', question, answer, reply });
+    renderHistory();
+  }
+
+  function addInsightHistory(insight) {
+    state.history.push({ type: 'insight', insight });
     renderHistory();
   }
 
   function renderHistory() {
-    conversationHistory.innerHTML = state.history.map(item => `
-      <div class="conversation-exchange">
-        <div class="user-answer">${item.answer}</div>
-        <div class="advisor-reply"><span>Russell's perspective</span><p>${item.reply}</p></div>
-      </div>
-    `).join('');
+    conversationHistory.innerHTML = state.history.map(item => {
+      if (item.type === 'insight') {
+        return `
+          <div class="pattern-history">
+            <span>Something worth testing</span>
+            <p>${item.insight}</p>
+            <small>This is general guidance based on the answers you provided—not a valuation, prediction, or claim based on your specific property.</small>
+          </div>
+        `;
+      }
+      return `
+        <div class="conversation-exchange">
+          <div class="user-answer">${item.answer}</div>
+          <div class="advisor-reply"><span>Russell's perspective</span><p>${item.reply}</p></div>
+        </div>
+      `;
+    }).join('');
   }
 
   function renderQuestion() {
@@ -185,17 +202,91 @@
     questionArea.scrollIntoView({ behavior: 'smooth', block: 'center' });
   }
 
+  function buildPatternInsight() {
+    const a = state.answers;
+
+    if (a.reason === 'downsize' && ['cosmetic', 'repairs', 'unknown'].includes(a.condition) && ['simple', 'stress', 'balance'].includes(a.priority)) {
+      return 'Because you are considering downsizing and also want to control effort or stress, a full remodel may work against your real goal. A better first step may be to separate essential repairs from optional updates, then compare the likely cost, disruption, and market benefit before committing.';
+    }
+
+    if (a.timeline === 'soon' && ['cosmetic', 'repairs'].includes(a.condition) && a.priority === 'price') {
+      return 'Your timeline and price goal may pull in different directions. More preparation can sometimes improve marketability, but it can also create delays and costs. The useful question is not “Should everything be fixed?” but “Which items are most likely to affect buyer confidence, financing, or competition?”';
+    }
+
+    if (['later', 'unsure'].includes(a.timeline) && a.priority === 'price') {
+      return 'Your flexible timing may be an advantage, but waiting is not automatically better. It gives you time to compare market conditions, preparation choices, carrying costs, and personal timing instead of relying on a single prediction about where prices are headed.';
+    }
+
+    if (a.reason === 'financial' && ['simple', 'stress', 'speed'].includes(a.priority)) {
+      return 'Because financial considerations are involved, the most useful comparison may be net proceeds, certainty, and timing—not just the highest possible sale price. Two offers with different costs, conditions, and closing risks can produce very different real outcomes.';
+    }
+
+    if (['ready', 'mostly'].includes(a.condition) && a.priority === 'price') {
+      return 'Since the home is already in relatively good condition, more spending is not automatically better. Before making additional improvements, it may be worth identifying whether they are likely to improve price, shorten market time, reduce buyer objections, or simply make the home look newer.';
+    }
+
+    return 'Your answers suggest that price, timing, effort, and certainty may not all point in the same direction. That is normal. The goal is not to find a universally “best” way to sell—it is to compare the tradeoffs and choose the strategy that best fits your property and your life.';
+  }
+
+  function shouldOfferInsight(question) {
+    return question.id === 'priority' && !state.insightShown;
+  }
+
+  function showPatternOffer(nextStep) {
+    const insight = buildPatternInsight();
+    questionArea.classList.remove('is-visible');
+    questionArea.innerHTML = `
+      <div class="pattern-offer">
+        <div class="question-number">I noticed a possible tradeoff</div>
+        <h2>Can I share something worth considering?</h2>
+        <p>This is not a prediction or a conclusion about your property. It is a general planning point based on the answers you have given so far.</p>
+        <div class="pattern-actions">
+          <button type="button" class="btn btn-gold" id="showInsightButton">Yes, share it</button>
+          <button type="button" class="btn decision-back" id="skipInsightButton">Keep going</button>
+        </div>
+      </div>
+    `;
+    requestAnimationFrame(() => questionArea.classList.add('is-visible'));
+
+    document.getElementById('showInsightButton').addEventListener('click', () => {
+      state.insightShown = true;
+      questionArea.innerHTML = `
+        <div class="pattern-reveal">
+          <span>Something worth testing</span>
+          <p>${insight}</p>
+          <small>This is general educational guidance. Your property, neighborhood, costs, financing, and current market conditions would need to be verified before acting on it.</small>
+          <button type="button" class="btn btn-gold" id="continueAfterInsight">That helps—keep going</button>
+        </div>
+      `;
+      document.getElementById('continueAfterInsight').addEventListener('click', () => {
+        addInsightHistory(insight);
+        nextStep();
+      });
+    });
+
+    document.getElementById('skipInsightButton').addEventListener('click', () => {
+      state.insightShown = true;
+      nextStep();
+    });
+  }
+
   function chooseAnswer(question, value) {
     const answer = labelFor(question, value);
     const reply = question.reply(value);
     state.answers[question.id] = value;
     addHistory(question.prompt, answer, reply);
-    questionArea.innerHTML = `<div class="thinking-message"><span></span><span></span><span></span><p>Thinking through what you shared...</p></div>`;
-    setTimeout(() => {
-      state.step += 1;
-      if (state.step >= questions.length) showResults();
-      else renderQuestion();
-    }, 650);
+
+    const advance = () => {
+      questionArea.innerHTML = `<div class="thinking-message"><span></span><span></span><span></span><p>Thinking through what you shared...</p></div>`;
+      setTimeout(() => {
+        state.step += 1;
+        if (state.step >= questions.length) showResults();
+        else renderQuestion();
+      }, 650);
+    };
+
+    if (shouldOfferInsight(question)) showPatternOffer(advance);
+    else advance();
   }
 
   function buildResults() {
@@ -205,38 +296,38 @@
     const coordinatedMove = ['before', 'after', 'same', 'unsure'].includes(a.nextHome);
 
     let summary = 'You are not simply deciding whether to sell. You are balancing timing, preparation, and what you want the move to accomplish.';
-    if (a.stage === 'exploring') summary = 'You are still in the information-gathering stage, which is a good position to be in. You have room to compare options before making commitments.';
-    if (a.stage === 'ready') summary = 'You appear ready to move from thinking into planning. The best next step is to turn your priorities into a clear sale strategy.';
+    if (a.stage === 'exploring') summary = 'You are still in the information-gathering stage, which may give you room to compare options before making commitments.';
+    if (a.stage === 'ready') summary = 'You appear ready to move from thinking into planning. The next step is to test your priorities against the property, current market, and likely net outcome.';
 
     const standout = [];
-    if (flexible) standout.push('You are not under immediate time pressure. That gives you the ability to make decisions based on value and fit rather than urgency.');
-    else standout.push('Your timeline is close enough that a simple preparation plan would help prevent rushed or unnecessary decisions.');
-    if (a.priority === 'price') standout.push('Price is your leading priority, so preparation and market positioning deserve more attention than convenience alone.');
-    if (['simple', 'stress'].includes(a.priority)) standout.push('A smooth, predictable process matters to you. That should influence which improvements you make and which offer terms you value.');
-    if (a.priority === 'speed') standout.push('Speed matters, but the best plan should still protect you from giving up value unnecessarily.');
+    if (flexible) standout.push('You are not under immediate time pressure. That may allow you to compare value, timing, and personal fit rather than reacting to a deadline.');
+    else standout.push('Your timeline is close enough that a simple preparation plan may help prevent rushed or unnecessary decisions.');
+    if (a.priority === 'price') standout.push('Price is your leading priority, so preparation and market positioning may deserve more attention than convenience alone.');
+    if (['simple', 'stress'].includes(a.priority)) standout.push('A smooth, predictable process matters to you. That should influence which improvements you consider and which offer terms you value.');
+    if (a.priority === 'speed') standout.push('Speed matters, but the plan should still compare the value of certainty against any price or flexibility you may be giving up.');
 
     const considerations = [];
-    if (needsWork) considerations.push('Do not assume every repair or update will pay for itself. Start with the items that affect buyer confidence, financing, or first impressions.');
-    else considerations.push('Because the home is already in good condition, avoid over-improving it simply because you are preparing to sell.');
-    if (coordinatedMove) considerations.push('The timing of your next home may affect financing, contingencies, possession, and how much certainty you need from a buyer.');
+    if (needsWork) considerations.push('Do not assume every repair or update will pay for itself. Start by identifying items that may affect buyer confidence, financing, insurability, safety, or first impressions.');
+    else considerations.push('Because the home is already in good condition, avoid assuming that additional improvements are necessary without comparing their cost and likely market effect.');
+    if (coordinatedMove) considerations.push('The timing of your next home may affect financing, contingencies, possession, carrying costs, and how much certainty you need from a buyer.');
     if (a.reason === 'downsize') considerations.push('Think beyond square footage. Maintenance, accessibility, monthly cost, location, and lifestyle may matter more than simply buying a smaller home.');
-    if (a.reason === 'financial') considerations.push('Focus on estimated net proceeds after costs, not just a possible list price.');
-    considerations.push('The best offer is not always the highest offer. Certainty, timing, and the buyer’s ability to perform can materially change the outcome.');
+    if (a.reason === 'financial') considerations.push('Focus on estimated net proceeds after costs and risks, not just a possible list price.');
+    considerations.push('The highest offer is not always the strongest overall outcome. Terms, certainty, timing, costs, and the buyer’s ability to perform may materially change the result.');
 
-    const questions = [
+    const resultQuestions = [
       'What does the next chapter need to provide that this home no longer does?',
       'What would make you regret selling too soon—or waiting too long?',
-      needsWork ? 'Which improvements would buyers actually reward in your specific market?' : 'Is there anything you would change only because you think buyers expect it?',
+      needsWork ? 'Which improvements might buyers reward in your specific market, and what evidence supports that?' : 'Is there anything you would change only because you assume buyers expect it?',
       coordinatedMove ? 'What is the backup plan if the sale and next purchase do not line up perfectly?' : 'How much flexibility do you have on timing and possession?'
     ];
 
-    let next = 'Start with two numbers: a realistic range for the home’s current market value and an estimated net proceeds figure after selling costs. Then compare those numbers with what you want your next move to accomplish.';
-    if (a.concern === 'repairs') next = 'Before hiring contractors, walk through the home with a market-focused professional and separate must-address items from cosmetic choices and low-return projects.';
-    if (a.concern === 'timing') next = 'Map out three possible timelines—soon, later this year, and next year—and note what improves or becomes harder in each scenario.';
-    if (a.concern === 'buySell') next = 'Have a lender and real estate advisor outline the buy-first, sell-first, and coordinated-close options before you commit to one path.';
-    if (a.concern === 'process') next = 'Ask for a plain-English walkthrough of the process from preparation through closing, including the decisions that cannot easily be undone once the home is listed.';
+    let next = 'Start with two verified estimates: a realistic current market-value range and an estimated net-proceeds range after selling costs. Then compare those figures with what you want your next move to accomplish.';
+    if (a.concern === 'repairs') next = 'Before hiring contractors, get a property-specific walkthrough and separate safety, financing, and buyer-confidence issues from optional cosmetic projects. Then compare cost, delay, and likely market benefit.';
+    if (a.concern === 'timing') next = 'Map out three possible timelines—soon, later this year, and next year—and note the personal, financial, and market assumptions behind each one.';
+    if (a.concern === 'buySell') next = 'Ask a lender and real estate advisor to outline the buy-first, sell-first, and coordinated-close options using your actual financing, equity, and risk tolerance.';
+    if (a.concern === 'process') next = 'Ask for a plain-English walkthrough from preparation through closing, including costs, contingencies, disclosures, and the decisions that become difficult to reverse once the home is listed.';
 
-    return { summary, standout, considerations, questions, next };
+    return { summary, standout, considerations, questions: resultQuestions, next };
   }
 
   function showResults() {
@@ -263,6 +354,7 @@
     state.step = 0;
     state.answers = {};
     state.history = [];
+    state.insightShown = false;
     startScreen.hidden = false;
     conversationScreen.hidden = true;
     resultScreen.hidden = true;
@@ -286,7 +378,9 @@
     state.step -= 1;
     const question = questions[state.step];
     delete state.answers[question.id];
+    while (state.history.length && state.history[state.history.length - 1].type === 'insight') state.history.pop();
     state.history.pop();
+    if (question.id === 'priority') state.insightShown = false;
     renderHistory();
     renderQuestion();
   });
