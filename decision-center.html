@@ -5,4 +5,80 @@
 <link rel="stylesheet" href="styles.css">
 <script defer src="js/decision-center.js"></script>
 </head><body>
-<div
+<div class="compliance">Russell Prater, REALTOR® · CA DRE #02012559 · RE/MAX Gold · Broker CA DRE #01215931 · Each office independently owned and operated.</div>
+<header><div class="container nav">
+  <a class="brand" href="index.html"><img src="assets/prater-logo.png" alt="RA Prater Co. logo"></a>
+  <nav class="links"><a href="sellers.html">Sellers</a><a href="buyers.html">Buyers</a><a href="investors.html">Investors</a><a href="commercial.html">Commercial</a><a href="decision-center.html">Decision Center</a><a href="about.html">About</a></nav>
+  <a class="btn btn-gold" href="contact.html">Let's Talk</a>
+</div></header>
+
+<main class="decision-page">
+<section class="decision-hero"><div class="container decision-hero-inner">
+  <div class="eyebrow">A practical place to start</div>
+  <h1>Make a clearer real estate decision.</h1>
+  <p>Answer a few questions and get a practical starting point based on your goals, timing, property, and risk tolerance. No pressure. No obligation. No canned sales pitch.</p>
+  <div class="decision-trust"><span>About 2 minutes</span><span>No login required</span><span>Your answers stay in your browser</span></div>
+</div></section>
+
+<section class="section"><div class="container decision-shell">
+  <aside class="decision-sidebar">
+    <div class="eyebrow">Decision Center</div>
+    <h2>What are you trying to figure out?</h2>
+    <p>Choose the path that best matches your situation. You can restart anytime.</p>
+    <div class="decision-progress" aria-label="Progress"><span id="progressBar"></span></div>
+    <small id="progressText">Choose a topic to begin</small>
+  </aside>
+
+  <section class="decision-tool" aria-live="polite">
+    <div id="startScreen">
+      <div class="decision-options decision-options-main">
+        <button class="decision-choice" data-path="sell"><span class="decision-icon">🏡</span><b>I'm thinking about selling</b><small>Timing, repairs, preparation, net proceeds, or whether selling makes sense.</small></button>
+        <button class="decision-choice" data-path="buy"><span class="decision-icon">🔑</span><b>I'm thinking about buying</b><small>Affordability, timing, buying before selling, and how ready you are.</small></button>
+        <button class="decision-choice" data-path="invest"><span class="decision-icon">📈</span><b>I'm evaluating an investment</b><small>Rental, flip, risk, repairs, financing, and return assumptions.</small></button>
+        <button class="decision-choice" data-path="commercial"><span class="decision-icon">🏢</span><b>I have a commercial property question</b><small>Lease versus buy, space needs, timing, and operating priorities.</small></button>
+      </div>
+    </div>
+
+    <form id="decisionForm" class="decision-form" hidden>
+      <div id="questionArea"></div>
+      <div class="decision-controls">
+        <button class="btn decision-back" type="button" id="backButton">Back</button>
+        <button class="btn btn-gold" type="button" id="nextButton">Continue</button>
+      </div>
+    </form>
+
+    <div id="resultScreen" class="decision-result" hidden>
+      <div class="result-badge">Your starting point</div>
+      <h2 id="resultTitle"></h2>
+      <p class="result-summary" id="resultSummary"></p>
+      <div class="result-grid">
+        <div><h3>What matters most</h3><ul id="resultPriorities"></ul></div>
+        <div><h3>Watch for</h3><ul id="resultRisks"></ul></div>
+      </div>
+      <div class="result-next"><h3>A practical next step</h3><p id="resultNext"></p></div>
+      <div class="result-actions">
+        <a class="btn btn-gold" id="emailRussell" href="contact.html">Talk it through with Russell</a>
+        <button class="btn decision-back" type="button" id="restartButton">Start over</button>
+      </div>
+      <p class="decision-disclaimer">This tool provides general educational guidance only. It is not legal, tax, lending, construction, engineering, or investment advice.</p>
+    </div>
+  </section>
+</div></section>
+
+<section class="section soft"><div class="container">
+  <div class="head"><div><div class="eyebrow">Why this exists</div><h2>Good decisions start before the transaction.</h2></div><p>Many real estate problems come from choosing a path before fully understanding the timing, tradeoffs, and risks. This tool helps organize the questions first.</p></div>
+  <div class="value-grid">
+    <article class="value-card"><h3>Clarify the goal</h3><p>Separate what you want from what the market, finances, and timeline may require.</p></article>
+    <article class="value-card"><h3>See the tradeoffs</h3><p>Compare speed, certainty, cost, convenience, and potential upside.</p></article>
+    <article class="value-card"><h3>Choose the next step</h3><p>Leave with a practical action instead of a generic “call an agent” message.</p></article>
+  </div>
+</div></section>
+</main>
+
+<footer><div class="container"><div class="footer-grid">
+  <div class="footer-brand"><img loading="lazy" src="assets/russell-headshot.png" alt="Russell Prater"><div><h4>Russell Prater, REALTOR®</h4><p>Reliable, accountable, and proven real estate guidance for the greater Sacramento region.</p></div></div>
+  <div><h4>Services</h4><a href="sellers.html">Sellers</a><a href="buyers.html">Buyers</a><a href="investors.html">Investors</a><a href="commercial.html">Commercial</a></div>
+  <div><h4>Resources</h4><a href="decision-center.html">Decision Center</a><a href="communities.html">Communities</a><a href="about.html">About Russell</a></div>
+  <div><h4>Connect</h4><a href="tel:+19162138844">(916) 213-8844</a><a href="mailto:russ@praterco.com">russ@praterco.com</a></div>
+</div><div class="legal">Russell Prater, REALTOR®, CA DRE #02012559. Broker: RE/MAX Gold, CA DRE #01215931. Each office independently owned and operated. Equal Housing Opportunity. Information is believed reliable but is not guaranteed. Nothing on this website is legal, tax, lending, construction, engineering, or investment advice.</div></div></footer>
+</body></html>
