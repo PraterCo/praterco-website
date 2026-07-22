@@ -1,38 +1,26 @@
-/* Russ: conversational homepage and site-wide entry point */
-.russ-home{background:#fff}
-.russ-hero{position:relative;overflow:hidden;min-height:720px;display:flex;align-items:center;background:radial-gradient(circle at 80% 25%,rgba(199,154,70,.2),transparent 28%),linear-gradient(125deg,#071b33 0%,#12365f 62%,#1f4d78 100%);color:#fff}
-.russ-hero:after{content:"";position:absolute;width:560px;height:560px;border:1px solid rgba(255,255,255,.09);border-radius:50%;right:-180px;bottom:-260px}
-.russ-hero-inner{position:relative;z-index:1;padding:100px 0;max-width:900px}
-.russ-hello{display:flex;align-items:center;gap:16px;margin-bottom:25px}
-.russ-hello img{width:68px;height:68px;object-fit:cover;border-radius:50%;border:3px solid rgba(255,255,255,.85)}
-.russ-hello span{font-size:.8rem;letter-spacing:.18em;text-transform:uppercase;font-weight:900;color:#f0cc83}
-.russ-hero h1{max-width:850px;margin-bottom:20px}
-.russ-hero .russ-lead{max-width:760px;font-size:1.23rem;color:#e2eaf3}
-.russ-promise{font-weight:800;color:#f2d796;margin-top:14px}
-.russ-actions{display:flex;gap:14px;flex-wrap:wrap;margin-top:34px}
-.russ-actions .btn{padding:16px 25px}
-.russ-actions .btn-ghost{border-color:rgba(255,255,255,.55)}
-.russ-question-section{padding:92px 0;background:#f8f5ee}
-.russ-section-intro{text-align:center;max-width:760px;margin:0 auto 42px}
-.russ-section-intro p{color:var(--muted);font-size:1.05rem}
-.russ-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
-.russ-card{display:flex;flex-direction:column;min-height:230px;padding:27px;border-radius:18px;border:1px solid #dfe4ea;background:#fff;box-shadow:0 12px 34px rgba(7,27,51,.06);transition:.2s}
-.russ-card:hover{transform:translateY(-5px);border-color:var(--gold);box-shadow:0 22px 50px rgba(7,27,51,.12)}
-.russ-card .russ-icon{font-size:1.55rem;margin-bottom:30px}
-.russ-card h3{margin-bottom:10px}
-.russ-card p{color:var(--muted);margin:0 0 18px}
-.russ-card strong{margin-top:auto;color:var(--navy2)}
-.russ-explainer{padding:92px 0}
-.russ-explainer-grid{display:grid;grid-template-columns:.8fr 1.2fr;gap:65px;align-items:center}
-.russ-quote{padding:34px;border-left:4px solid var(--gold);background:#f8f5ee;border-radius:0 18px 18px 0}
-.russ-quote p{font-family:Georgia,'Times New Roman',serif;font-size:1.55rem;color:var(--navy);margin:0 0 16px}
-.russ-quote small{color:var(--muted)}
-.ask-russ-float{position:fixed;right:22px;bottom:22px;z-index:80;display:flex;align-items:center;gap:10px;padding:14px 20px;border-radius:999px;background:var(--gold);color:#fff;font-weight:900;box-shadow:0 14px 34px rgba(7,27,51,.24);transition:.2s}
-.ask-russ-float:hover{transform:translateY(-3px);background:#ad8139}
-.ask-russ-float span{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;background:rgba(255,255,255,.18)}
-.russ-nav-link{color:var(--navy);font-weight:900}
-.russ-conversation-brand{display:flex;align-items:center;gap:14px;margin-bottom:8px}
-.russ-conversation-brand img{width:58px;height:58px;border-radius:50%;object-fit:cover}
-.russ-conversation-brand strong{font-family:Georgia,'Times New Roman',serif;font-size:1.55rem;color:var(--navy)}
-@media(max-width:940px){.russ-grid{grid-template-columns:repeat(2,1fr)}.russ-explainer-grid{grid-template-columns:1fr}.russ-hero{min-height:620px}}
-@media(max-width:640px){.russ-hero-inner{padding:70px 0}.russ-grid{grid-template-columns:1fr}.russ-question-section,.russ-explainer{padding:68px 0}.ask-russ-float{right:14px;bottom:14px;padding:12px 16px}.ask-russ-float span{display:none}}
+/* Project Russ - Phase 1 */
+:root{--ink:#17201c;--muted:#65706a;--paper:#fbfaf6;--card:#fff;--line:#dedfd9;--green:#244b3b;--green2:#18362a;--warm:#f2eee4}
+*{box-sizing:border-box}.russ-page{background:var(--paper);color:var(--ink)}
+.russ-page header{background:rgba(251,250,246,.96);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:40;backdrop-filter:blur(12px)}
+.russ-page .nav{min-height:82px}.russ-page .links a{color:var(--ink)}
+.russ-cta{display:inline-flex;align-items:center;justify-content:center;padding:12px 18px;border-radius:10px;background:var(--green);color:#fff;font-weight:800}
+.russ-home-hero{min-height:calc(100vh - 112px);display:grid;place-items:center;padding:72px 0 56px}
+.russ-home-inner{width:min(1040px,92vw);text-align:center}
+.russ-kicker{font-size:.78rem;letter-spacing:.18em;text-transform:uppercase;color:var(--green);font-weight:900;margin-bottom:18px}
+.russ-home-inner h1{font-family:Georgia,'Times New Roman',serif;font-size:clamp(3.3rem,8vw,7.2rem);line-height:.95;letter-spacing:-.045em;margin:0 0 26px;color:var(--ink)}
+.russ-home-inner h2{font-size:clamp(1.35rem,2.8vw,2.3rem);font-weight:500;margin:0 0 44px;color:var(--muted)}
+.russ-entry-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;max-width:900px;margin:0 auto}
+.russ-entry{min-height:150px;padding:24px;border:1px solid var(--line);border-radius:18px;background:rgba(255,255,255,.72);text-align:left;display:flex;flex-direction:column;justify-content:space-between;transition:.2s ease;color:var(--ink)}
+.russ-entry:hover{transform:translateY(-4px);border-color:#9eaa9f;box-shadow:0 18px 48px rgba(31,50,41,.09);background:#fff}
+.russ-entry span{font-size:.78rem;color:var(--muted);font-weight:800;letter-spacing:.08em;text-transform:uppercase}.russ-entry strong{font-size:1.3rem;line-height:1.15}.russ-entry em{font-style:normal;color:var(--green);font-weight:900}
+.russ-signoff{margin:34px 0 0;color:var(--muted);font-size:.95rem}
+.thought-room{min-height:calc(100vh - 112px);padding:64px 0 70px;overflow:hidden;background:radial-gradient(circle at 12% 8%,#f2eee4 0,transparent 28%),var(--paper)}
+.thought-room-head{max-width:760px;margin-bottom:34px}.thought-room-head h1{font-family:Georgia,'Times New Roman',serif;font-size:clamp(2.8rem,6vw,5.4rem);line-height:1;letter-spacing:-.04em;margin:0 0 16px}.thought-room-head p{font-size:1.12rem;color:var(--muted);max-width:620px}
+.thought-board{position:relative;min-height:600px;border:1px solid var(--line);border-radius:26px;background:rgba(255,255,255,.64);overflow:hidden;box-shadow:0 24px 70px rgba(41,52,45,.07)}
+.thought{position:absolute;max-width:270px;padding:15px 18px;border:1px solid #d7d9d2;border-radius:14px;background:#fff;color:var(--ink);font-weight:750;line-height:1.25;box-shadow:0 9px 28px rgba(31,50,41,.07);transition:.2s ease;transform:rotate(var(--r,0deg))}
+.thought:hover,.thought:focus{z-index:10;transform:rotate(0) scale(1.06);border-color:var(--green);box-shadow:0 16px 38px rgba(31,50,41,.16);outline:none}
+.thought:nth-child(1){left:5%;top:9%;--r:-2deg}.thought:nth-child(2){left:35%;top:5%;--r:1.5deg}.thought:nth-child(3){right:6%;top:12%;--r:-1deg}.thought:nth-child(4){left:14%;top:34%;--r:1deg}.thought:nth-child(5){left:43%;top:29%;--r:-2deg}.thought:nth-child(6){right:11%;top:38%;--r:2deg}.thought:nth-child(7){left:4%;top:62%;--r:-1deg}.thought:nth-child(8){left:34%;top:57%;--r:2deg}.thought:nth-child(9){right:5%;top:65%;--r:-2deg}.thought:nth-child(10){left:18%;bottom:5%;--r:1deg}.thought:nth-child(11){left:52%;bottom:7%;--r:-1deg}
+.blank-thought{position:absolute;right:5%;bottom:5%;padding:13px 16px;border-radius:12px;background:var(--green);color:#fff;font-weight:900}
+.room-note{margin-top:20px;color:var(--muted);text-align:center}
+@media(max-width:900px){.russ-entry-grid{grid-template-columns:repeat(2,1fr)}.thought-board{min-height:auto;padding:18px;display:grid;grid-template-columns:1fr 1fr;gap:12px}.thought,.blank-thought{position:static!important;transform:none!important;max-width:none}.blank-thought{text-align:center}}
+@media(max-width:620px){.russ-page .links{display:none}.russ-home-hero{padding:52px 0}.russ-entry-grid{grid-template-columns:1fr}.russ-entry{min-height:118px}.thought-board{grid-template-columns:1fr}.thought-room{padding-top:44px}.thought-room-head h1{font-size:3rem}}
