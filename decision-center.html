@@ -1,7 +1,7 @@
 <!doctype html><html lang="en"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Real Estate Decision Center | RA Prater Co.</title>
-<meta name="description" content="A practical, no-pressure starting point for common real estate decisions in Greater Sacramento.">
+<meta name="description" content="A practical, no-pressure conversation to help Greater Sacramento homeowners think through selling.">
 <link rel="stylesheet" href="styles.css">
 <script defer src="js/decision-center.js"></script>
 </head><body>
@@ -14,64 +14,69 @@
 
 <main class="decision-page">
 <section class="decision-hero"><div class="container decision-hero-inner">
-  <div class="eyebrow">A practical place to start</div>
-  <h1>Make a clearer real estate decision.</h1>
-  <p>Answer a few questions and get a practical starting point based on your goals, timing, property, and risk tolerance. No pressure. No obligation. No canned sales pitch.</p>
-  <div class="decision-trust"><span>About 2 minutes</span><span>No login required</span><span>Your answers stay in your browser</span></div>
+  <div class="eyebrow">Decision Center</div>
+  <h1>Let's think it through together.</h1>
+  <p>Buying, selling, investing, or simply exploring—you do not need to have everything figured out today. Start wherever you are.</p>
+  <strong>No pressure.</strong>
 </div></section>
 
-<section class="section"><div class="container decision-shell">
+<section class="decision-conversation-section"><div class="container decision-conversation-wrap">
   <aside class="decision-sidebar">
-    <div class="eyebrow">Decision Center</div>
-    <h2>What are you trying to figure out?</h2>
-    <p>Choose the path that best matches your situation. You can restart anytime.</p>
-    <div class="decision-progress" aria-label="Progress"><span id="progressBar"></span></div>
-    <small id="progressText">Choose a topic to begin</small>
+    <div class="eyebrow">A conversation, not a checklist</div>
+    <h2>Tell me what's going on.</h2>
+    <p>I will ask one question at a time, respond to what you share, and help you identify what may be worth considering next.</p>
+    <div class="conversation-progress" aria-label="Conversation progress"><span id="progressBar"></span></div>
+    <small id="progressText">Choose a place to start</small>
+    <button class="text-button" type="button" id="restartButton" hidden>Start over</button>
   </aside>
 
-  <section class="decision-tool" aria-live="polite">
+  <section class="conversation-card" aria-live="polite">
     <div id="startScreen">
+      <p class="conversation-kicker">What brings you here today?</p>
       <div class="decision-options decision-options-main">
-        <button class="decision-choice" data-path="sell"><span class="decision-icon">🏡</span><b>I'm thinking about selling</b><small>Timing, repairs, preparation, net proceeds, or whether selling makes sense.</small></button>
-        <button class="decision-choice" data-path="buy"><span class="decision-icon">🔑</span><b>I'm thinking about buying</b><small>Affordability, timing, buying before selling, and how ready you are.</small></button>
-        <button class="decision-choice" data-path="invest"><span class="decision-icon">📈</span><b>I'm evaluating an investment</b><small>Rental, flip, risk, repairs, financing, and return assumptions.</small></button>
-        <button class="decision-choice" data-path="commercial"><span class="decision-icon">🏢</span><b>I have a commercial property question</b><small>Lease versus buy, space needs, timing, and operating priorities.</small></button>
+        <button class="decision-choice" data-path="sell"><span class="decision-icon">🏡</span><span><b>I'm thinking about selling</b><small>Help me understand my options.</small></span></button>
+        <button class="decision-choice is-coming" type="button" disabled><span class="decision-icon">🔑</span><span><b>I'm thinking about buying</b><small>Coming next.</small></span></button>
+        <button class="decision-choice is-coming" type="button" disabled><span class="decision-icon">📈</span><span><b>I'm considering an investment</b><small>Coming next.</small></span></button>
+        <button class="decision-choice is-coming" type="button" disabled><span class="decision-icon">🏢</span><span><b>Commercial real estate</b><small>Coming next.</small></span></button>
       </div>
     </div>
 
-    <form id="decisionForm" class="decision-form" hidden>
-      <div id="questionArea"></div>
+    <div id="conversationScreen" hidden>
+      <div id="conversationHistory" class="conversation-history"></div>
+      <div id="questionArea" class="question-area"></div>
+      <p class="choice-help" id="choiceHelp">Choose the answer that feels closest. Nothing here locks you into a decision.</p>
       <div class="decision-controls">
         <button class="btn decision-back" type="button" id="backButton">Back</button>
-        <button class="btn btn-gold" type="button" id="nextButton">Continue</button>
       </div>
-    </form>
+    </div>
 
     <div id="resultScreen" class="decision-result" hidden>
-      <div class="result-badge">Your starting point</div>
-      <h2 id="resultTitle"></h2>
+      <div class="result-badge">Before You Decide</div>
+      <h2>Based on what you shared...</h2>
       <p class="result-summary" id="resultSummary"></p>
-      <div class="result-grid">
-        <div><h3>What matters most</h3><ul id="resultPriorities"></ul></div>
-        <div><h3>Watch for</h3><ul id="resultRisks"></ul></div>
+
+      <section class="result-section"><h3>What stands out</h3><div id="resultStandout"></div></section>
+      <section class="result-section"><h3>Things worth considering</h3><ul id="resultConsiderations"></ul></section>
+      <section class="result-section"><h3>Questions worth asking</h3><ul id="resultQuestions"></ul></section>
+      <section class="result-next"><h3>A practical next step</h3><p id="resultNext"></p></section>
+
+      <div class="second-opinion">
+        <p class="conversation-kicker">Still thinking it through?</p>
+        <h3>Would you like a second opinion?</h3>
+        <p>Sometimes it helps to compare notes with someone who has seen a lot of different outcomes. Tell me a little about what is going on, and I will take it from there.</p>
+        <a class="btn btn-gold" id="emailRussell" href="contact.html">Let's talk it through</a>
+        <strong>No pressure.</strong>
       </div>
-      <div class="result-next"><h3>A practical next step</h3><p id="resultNext"></p></div>
-      <div class="result-actions">
-        <a class="btn btn-gold" id="emailRussell" href="contact.html">Talk it through with Russell</a>
-        <button class="btn decision-back" type="button" id="restartButton">Start over</button>
+
+      <div class="helpful-box">
+        <p>Was this helpful?</p>
+        <div><button type="button" class="feedback-button" data-feedback="yes">Yes</button><button type="button" class="feedback-button" data-feedback="no">Not really</button></div>
+        <p id="feedbackResponse" hidden></p>
       </div>
+      <p class="parting-note">Even if we never work together, I hope this helped you make a better decision.</p>
       <p class="decision-disclaimer">This tool provides general educational guidance only. It is not legal, tax, lending, construction, engineering, or investment advice.</p>
     </div>
   </section>
-</div></section>
-
-<section class="section soft"><div class="container">
-  <div class="head"><div><div class="eyebrow">Why this exists</div><h2>Good decisions start before the transaction.</h2></div><p>Many real estate problems come from choosing a path before fully understanding the timing, tradeoffs, and risks. This tool helps organize the questions first.</p></div>
-  <div class="value-grid">
-    <article class="value-card"><h3>Clarify the goal</h3><p>Separate what you want from what the market, finances, and timeline may require.</p></article>
-    <article class="value-card"><h3>See the tradeoffs</h3><p>Compare speed, certainty, cost, convenience, and potential upside.</p></article>
-    <article class="value-card"><h3>Choose the next step</h3><p>Leave with a practical action instead of a generic “call an agent” message.</p></article>
-  </div>
 </div></section>
 </main>
 
