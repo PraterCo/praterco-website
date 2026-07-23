@@ -1,29 +1,19 @@
 (() => {
   const principles = [
-    'Understand the life decision before discussing the property.',
-    'Reduce pressure; increase clarity.',
-    'Name tradeoffs honestly without predicting the future.',
+    'Trust first.',
+    'Reflect before redirecting.',
+    'Understand the why before discussing the how.',
     'Ask one useful question at a time.',
+    'Reduce pressure and increase clarity.',
     'Recommend the smallest practical next step.'
   ];
 
   const acknowledgements = {
-    motivation: [
-      'That makes sense. The house is part of the decision, but it sounds like the real issue is what changed around it.',
-      'That helps. I would rather understand the reason behind the move before talking about price or timing.'
-    ],
-    successLooksLike: [
-      'Good. That gives us something more useful to optimize for than simply “selling.”',
-      'That is important. The best decision is the one that gets you closer to that outcome—not automatically the one with the highest number.'
-    ],
-    timeline: [
-      'Understood. Timing changes the strategy, but it does not mean you need to rush the decision.',
-      'That gives us a practical planning window. Now we can separate what matters soon from what can wait.'
-    ],
-    blockerConfirmed: [
-      'That is the decision I would focus on first. Once that becomes clearer, the rest usually gets much easier.',
-      'Good—we have found the question underneath the question. That is where the useful work begins.'
-    ]
+    motivation: ['Got it.', 'Okay.', 'That makes sense.', 'For sure.'],
+    successLooksLike: ['Got it.', 'That makes sense.', 'Sounds good.'],
+    timeline: ['Okay.', 'Got it.', 'That helps.'],
+    blockerConfirmed: ['Got it.', 'Okay.', 'That helps.'],
+    blockerDetails: ['Got it.', 'That makes sense.', 'Okay.']
   };
 
   function choose(items, seed) {
@@ -32,32 +22,67 @@
     return items[value % items.length];
   }
 
-  function acknowledge(field, answer) {
-    return choose(acknowledgements[field], answer);
+  function cleanThought(answer) {
+    return String(answer || '')
+      .trim()
+      .replace(/[.!?]+$/g, '')
+      .replace(/^(yeah|yes|well|honestly|actually|basically|so|i mean)[,\s]+/i, '')
+      .trim();
   }
 
-  function opening(profile) {
-    const name = profile.decisionProfile || 'The Thoughtful Planner';
-    return `You may eventually decide to sell, wait, rent, repair, or do nothing. My job here is not to push one of those answers. It is to help ${name.toLowerCase()} think through the decision clearly.`;
+  function reflect(answer) {
+    const clean = cleanThought(answer);
+    if (!clean) return '';
+
+    const contrast = clean.split(/\b(?:but|because)\b/i).map((part) => part.trim()).filter(Boolean);
+    let thought = contrast.length > 1 ? contrast[contrast.length - 1] : clean;
+
+    const words = thought.split(/\s+/);
+    if (words.length > 9) thought = words.slice(-7).join(' ');
+
+    thought = thought
+      .replace(/^(we are|we're|i am|i'm|it is|it's)\s+/i, '')
+      .replace(/^that\s+/i, '')
+      .trim();
+
+    if (!thought) return '';
+    return `${thought.charAt(0).toUpperCase()}${thought.slice(1)}?`;
+  }
+
+  function acknowledge(field, answer) {
+    return choose(acknowledgements[field] || ['Got it.', 'Okay.', 'That helps.'], answer);
+  }
+
+  function opening() {
+    return 'We can take this one step at a time. I want to understand what is behind the decision before we talk about what you should do.';
   }
 
   function transition(question) {
-    if (!question || question.field === 'complete') return question ? question.text : '';
-    return `Before I give you advice, I want to understand one more thing. ${question.text}`;
+    return question ? question.text : '';
   }
 
   function blueprintIntro(summary) {
-    const outcome = summary.success ? `You are trying to create ${summary.success.toLowerCase()}.` : 'You are trying to make a confident decision without unnecessary pressure.';
-    return `${outcome} The next step is not automatically putting the home on the market. It is getting enough reliable information to compare your real options.`;
+    const outcome = summary.success
+      ? `You are trying to create ${summary.success.toLowerCase()}.`
+      : 'You are trying to make a confident decision without unnecessary pressure.';
+    return `${outcome} The next step is not automatically listing the home. It is replacing assumptions with the right information.`;
   }
 
   function nextSteps(summary) {
     const steps = [];
     if (summary.blocker) steps.push(`Put real numbers around: ${summary.blocker}.`);
-    steps.push('Estimate likely net proceeds and the cost of each realistic alternative.');
-    steps.push('Review the options with Russ and choose the next step that creates clarity without forcing a commitment.');
+    steps.push('Estimate likely net proceeds and compare the realistic alternatives.');
+    steps.push('Talk through the options with Russ and choose the next step without forcing a commitment.');
     return steps.slice(0, 3);
   }
 
-  window.RussPersonality = { principles, acknowledge, opening, transition, blueprintIntro, nextSteps };
+  window.RussPersonality = {
+    principles,
+    reflect,
+    acknowledge,
+    opening,
+    transition,
+    blueprintIntro,
+    nextSteps
+  };
 })();
