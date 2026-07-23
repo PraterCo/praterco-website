@@ -1,5 +1,6 @@
 (() => {
   const STORAGE_KEY = 'praterSellerProfile';
+
   const pathSignals = {
     'needs-work': ['Preparing for a possible sale', 'Uncertainty about which repairs are actually worthwhile', 'The Careful Preparer'],
     value: ['Exploring home equity', 'Uncertainty about the home’s current value', 'The Equity Explorer'],
@@ -14,63 +15,176 @@
     solar: ['Planning around a solar agreement', 'How the solar obligation affects a future sale', 'The Detail Planner'],
     other: ['A unique life or property change', 'The central decision is still emerging', 'The Thoughtful Planner']
   };
+
   const stages = [[0, 'Exploring'], [30, 'Clarifying'], [55, 'Planning'], [80, 'Ready to Act']];
 
   function freshProfile() {
-    return { version: 2, startedAt: new Date().toISOString(), updatedAt: new Date().toISOString(), path: null, decisionProfile: 'The Clarity Seeker', lifeEvent: null, motivation: null, successLooksLike: null, timeline: null, blocker: null, blockerConfirmed: null, answers: [], readiness: 10, stage: 'Exploring', unknowns: [], roadmap: [] };
+    return {
+      version: 2,
+      startedAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      path: null,
+      decisionProfile: 'The Clarity Seeker',
+      lifeEvent: null,
+      motivation: null,
+      successLooksLike: null,
+      timeline: null,
+      blocker: null,
+      blockerConfirmed: null,
+      blockerDetails: null,
+      answers: [],
+      readiness: 10,
+      stage: 'Exploring',
+      unknowns: [],
+      roadmap: []
+    };
   }
+
   function load() {
-    try { const p = JSON.parse(localStorage.getItem(STORAGE_KEY)); return p && p.version === 2 ? hydrate(p) : freshProfile(); }
-    catch (_) { return freshProfile(); }
+    try {
+      const stored = JSON.parse(localStorage.getItem(STORAGE_KEY));
+      return stored && stored.version === 2 ? hydrate({ ...freshProfile(), ...stored }) : freshProfile();
+    } catch (_) {
+      return freshProfile();
+    }
   }
-  function save(profile) { profile.updatedAt = new Date().toISOString(); localStorage.setItem(STORAGE_KEY, JSON.stringify(profile)); return profile; }
-  function stageFor(score) { return stages.reduce((label, item) => score >= item[0] ? item[1] : label, 'Exploring'); }
+
+  function save(profile) {
+    profile.updatedAt = new Date().toISOString();
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(profile));
+    return profile;
+  }
+
+  function stageFor(score) {
+    return stages.reduce((label, item) => score >= item[0] ? item[1] : label, 'Exploring');
+  }
+
+  function blockerIsResolved(profile) {
+    return profile.blockerConfirmed === 'Yes, exactly' || !!profile.blockerDetails;
+  }
+
   function hydrate(profile) {
     let score = 10;
     if (profile.path) score += 10;
     if (profile.motivation) score += 20;
     if (profile.successLooksLike) score += 20;
     if (profile.timeline) score += 20;
-    if (profile.blockerConfirmed) score += 20;
-    if (profile.blockerConfirmed === 'Yes, exactly') score += 10;
+    if (profile.blockerConfirmed) score += 10;
+    if (blockerIsResolved(profile)) score += 10;
+
     profile.readiness = Math.min(score, 100);
     profile.stage = stageFor(profile.readiness);
     profile.unknowns = [
       !profile.motivation && 'What changed and why this is on your mind now',
       !profile.successLooksLike && 'What a successful outcome would feel like',
       !profile.timeline && 'Whether this is weeks, months, or early exploration',
-      !profile.blockerConfirmed && 'Whether we have identified the real decision'
+      !profile.blockerConfirmed && 'Whether we have identified the real decision',
+      profile.blockerConfirmed && !blockerIsResolved(profile) && 'What concern is bigger than the one we first identified'
     ].filter(Boolean);
-    if (!profile.unknowns.length) profile.unknowns = ['The real numbers needed to compare your best options'];
+
+    if (!profile.unknowns.length) {
+      profile.unknowns = ['The real numbers needed to compare your best options'];
+    }
+
     profile.roadmap = [
       { text: 'Tell Russ what changed', complete: !!profile.motivation, current: !profile.motivation },
       { text: 'Define what success looks like', complete: !!profile.successLooksLike, current: !!profile.motivation && !profile.successLooksLike },
       { text: 'Clarify your timing', complete: !!profile.timeline, current: !!profile.successLooksLike && !profile.timeline },
-      { text: 'Identify the biggest decision', complete: !!profile.blockerConfirmed, current: !!profile.timeline && !profile.blockerConfirmed },
-      { text: 'Build your personalized next step', complete: profile.readiness >= 80, current: !!profile.blockerConfirmed && profile.readiness < 80 }
+      { text: 'Identify the biggest decision', complete: blockerIsResolved(profile), current: !!profile.timeline && !blockerIsResolved(profile) },
+      { text: 'Build your personalized next step', complete: profile.readiness >= 80, current: blockerIsResolved(profile) && profile.readiness < 80 }
     ];
+
     return profile;
   }
+
   function begin(path) {
     const profile = freshProfile();
     const signal = pathSignals[path] || pathSignals.other;
-    profile.path = path; profile.lifeEvent = signal[0]; profile.blocker = signal[1]; profile.decisionProfile = signal[2];
+    profile.path = path;
+    profile.lifeEvent = signal[0];
+    profile.blocker = signal[1];
+    profile.decisionProfile = signal[2];
     return save(hydrate(profile));
   }
+
   function record(profile, field, answer) {
-    if (field === 'blockerConfirmed' && answer === 'No, something else is bigger') profile.blocker = 'A different concern that still needs to be named';
+    if (!profile || !field || !answer) return profile;
+
     profile[field] = answer;
+
+    if (field === 'blockerDetails') {
+      profile.blocker = answer;
+    }
+
     profile.answers.push({ field, answer, at: new Date().toISOString() });
     return save(hydrate(profile));
   }
+
   function nextQuestion(profile) {
-    if (!profile.motivation) return { field: 'motivation', text: 'Before we talk about the house, what changed recently that put this thought on your mind?', replies: ['Our family or lifestyle changed', 'The house no longer fits', 'Money or work changed', 'We are planning ahead'] };
-    if (!profile.successLooksLike) return { field: 'successLooksLike', text: 'Six months from now, what would make you say this was the right decision?', replies: ['More financial certainty', 'A less stressful home', 'A smooth move', 'Knowing we made the smart choice'] };
-    if (!profile.timeline) return { field: 'timeline', text: 'How soon would you ideally want clarity or a plan?', replies: ['Within 30 days', 'Within 3–6 months', 'Later this year', 'I am only exploring'] };
-    if (!profile.blockerConfirmed) return { field: 'blockerConfirmed', text: `Let me make sure I have this right. The biggest decision may be ${profile.blocker.toLowerCase()}. Does that feel accurate?`, replies: ['Yes, exactly', 'Partly, but there is more', 'No, something else is bigger'] };
-    return { field: 'complete', text: 'I understand enough to give you a useful first roadmap. The next step is not automatically listing—it is replacing assumptions with the right numbers.', replies: [] };
+    if (!profile.motivation) {
+      return {
+        field: 'motivation',
+        text: 'Before we talk about the house, what changed recently that put this thought on your mind?',
+        replies: ['Our family or lifestyle changed', 'The house no longer fits', 'Money or work changed', 'We are planning ahead']
+      };
+    }
+
+    if (!profile.successLooksLike) {
+      return {
+        field: 'successLooksLike',
+        text: 'Six months from now, what would make you say this was the right decision?',
+        replies: ['More financial certainty', 'A less stressful home', 'A smooth move', 'Knowing we made the smart choice']
+      };
+    }
+
+    if (!profile.timeline) {
+      return {
+        field: 'timeline',
+        text: 'How soon would you ideally want clarity or a plan?',
+        replies: ['Within 30 days', 'Within 3–6 months', 'Later this year', 'I am only exploring']
+      };
+    }
+
+    if (!profile.blockerConfirmed) {
+      return {
+        field: 'blockerConfirmed',
+        text: `Let me make sure I have this right. The biggest decision may be ${profile.blocker.toLowerCase()}. Does that feel accurate?`,
+        replies: ['Yes, exactly', 'Partly, but there is more', 'No, something else is bigger']
+      };
+    }
+
+    if (!blockerIsResolved(profile)) {
+      return {
+        field: 'blockerDetails',
+        text: 'What concern feels bigger or still needs to be included?',
+        replies: []
+      };
+    }
+
+    return {
+      field: 'complete',
+      text: 'I understand enough to give you a useful first roadmap. The next step is not automatically listing—it is replacing assumptions with the right numbers.',
+      replies: []
+    };
   }
-  function summary(profile) { return { title: profile.decisionProfile, lifeEvent: profile.lifeEvent, motivation: profile.motivation, success: profile.successLooksLike, timeline: profile.timeline, blocker: profile.blocker, readiness: profile.readiness, stage: profile.stage }; }
-  function reset() { localStorage.removeItem(STORAGE_KEY); return freshProfile(); }
+
+  function summary(profile) {
+    return {
+      title: profile.decisionProfile,
+      lifeEvent: profile.lifeEvent,
+      motivation: profile.motivation,
+      success: profile.successLooksLike,
+      timeline: profile.timeline,
+      blocker: profile.blocker,
+      readiness: profile.readiness,
+      stage: profile.stage
+    };
+  }
+
+  function reset() {
+    localStorage.removeItem(STORAGE_KEY);
+    return freshProfile();
+  }
+
   window.PraterDecisionEngine = { begin, load, record, nextQuestion, summary, save, reset };
 })();
