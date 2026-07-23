@@ -1,49 +1,64 @@
 (() => {
   const STORAGE_KEY = 'praterSellerProfile';
+  const STATES = Object.freeze({
+    UNKNOWN: 'UNKNOWN',
+    INVESTIGATING: 'INVESTIGATING',
+    UNDERSTOOD: 'UNDERSTOOD',
+    CONFIRMED: 'CONFIRMED',
+    DONE: 'DONE'
+  });
 
   const pathSignals = {
-    'needs-work': ['Preparing for a possible sale', 'Uncertainty about which repairs are actually worthwhile', 'The Careful Preparer'],
-    value: ['Exploring home equity', 'Uncertainty about the home’s current value', 'The Equity Explorer'],
-    'low-rate': ['A lifestyle need is competing with a low payment', 'Whether moving is worth giving up a low mortgage rate', 'The Thoughtful Mover'],
-    timing: ['Considering a move in an uncertain market', 'Whether the timing works for this specific move', 'The Market Watcher'],
-    'buy-first': ['Coordinating a sale and purchase', 'How to move without taking on too much timing or payment risk', 'The Careful Coordinator'],
-    downsizing: ['The current home no longer fits the next chapter', 'Whether simplifying life is worth the financial tradeoff', 'The Thoughtful Downsizer'],
+    'needs-work': ['Preparing for a possible sale', 'What work is actually necessary', 'The Careful Preparer'],
+    value: ['Exploring home equity', 'What the home is realistically worth', 'The Equity Explorer'],
+    'low-rate': ['A lifestyle need is competing with a low payment', 'Whether moving is worth the financial tradeoff', 'The Thoughtful Mover'],
+    timing: ['Considering a move in an uncertain market', 'Whether the timing works for this move', 'The Market Watcher'],
+    'buy-first': ['Coordinating a sale and purchase', 'How to move without unnecessary timing risk', 'The Careful Coordinator'],
+    downsizing: ['The current home no longer fits the next chapter', 'What the next home needs to make easier', 'The Thoughtful Downsizer'],
     inherited: ['Managing an inherited property', 'How to resolve the family, property, and timing questions', 'The Legacy Planner'],
-    'quick-sale': ['A time-sensitive life change', 'How to move quickly without giving away unnecessary value', 'The Priority Seller'],
-    rental: ['Comparing selling with long-term ownership', 'Which path creates the better financial and lifestyle outcome', 'The Long-Term Thinker'],
-    stuck: ['Something changed, but the path is unclear', 'Not knowing which question to answer first', 'The Clarity Seeker'],
+    'quick-sale': ['A time-sensitive life change', 'How to move quickly without giving away value', 'The Priority Seller'],
+    rental: ['Comparing selling with long-term ownership', 'Which path best fits the financial and lifestyle goals', 'The Long-Term Thinker'],
+    stuck: ['Something changed, but the path is unclear', 'What is really driving the thought of moving', 'The Clarity Seeker'],
     solar: ['Planning around a solar agreement', 'How the solar obligation affects a future sale', 'The Detail Planner'],
     other: ['A unique life or property change', 'The central decision is still emerging', 'The Thoughtful Planner']
   };
 
-  const stages = [[0, 'Exploring'], [30, 'Clarifying'], [55, 'Planning'], [80, 'Ready to Act']];
+  const discoveryOrder = ['why', 'timeline', 'location', 'homeNeeds', 'financialPath', 'obstacle'];
+
+  function discovery(label) {
+    return { label, status: STATES.UNKNOWN, confidence: 0, summary: null, evidence: [] };
+  }
 
   function freshProfile() {
     return {
-      version: 2,
+      version: 3,
       startedAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       path: null,
       decisionProfile: 'The Clarity Seeker',
       lifeEvent: null,
-      motivation: null,
-      successLooksLike: null,
-      timeline: null,
-      blocker: null,
-      blockerConfirmed: null,
-      blockerDetails: null,
+      centralDecision: null,
       answers: [],
+      discoveries: {
+        why: discovery('Why'),
+        timeline: discovery('Timeline'),
+        location: discovery('Location'),
+        homeNeeds: discovery('Home needs'),
+        financialPath: discovery('Sell or buy first'),
+        obstacle: discovery('Biggest obstacle')
+      },
       readiness: 10,
       stage: 'Exploring',
       unknowns: [],
-      roadmap: []
+      roadmap: [],
+      lastHumanMoment: null
     };
   }
 
   function load() {
     try {
       const stored = JSON.parse(localStorage.getItem(STORAGE_KEY));
-      return stored && stored.version === 2 ? hydrate({ ...freshProfile(), ...stored }) : freshProfile();
+      return stored && stored.version === 3 ? hydrate({ ...freshProfile(), ...stored }) : freshProfile();
     } catch (_) {
       return freshProfile();
     }
@@ -55,129 +70,181 @@
     return profile;
   }
 
-  function stageFor(score) {
-    return stages.reduce((label, item) => score >= item[0] ? item[1] : label, 'Exploring');
-  }
-
-  function blockerIsResolved(profile) {
-    return profile.blockerConfirmed === 'Yes, exactly' || !!profile.blockerDetails;
-  }
-
-  function hydrate(profile) {
-    let score = 10;
-    if (profile.path) score += 10;
-    if (profile.motivation) score += 20;
-    if (profile.successLooksLike) score += 20;
-    if (profile.timeline) score += 20;
-    if (profile.blockerConfirmed) score += 10;
-    if (blockerIsResolved(profile)) score += 10;
-
-    profile.readiness = Math.min(score, 100);
-    profile.stage = stageFor(profile.readiness);
-    profile.unknowns = [
-      !profile.motivation && 'What changed and why this is on your mind now',
-      !profile.successLooksLike && 'What a successful outcome would feel like',
-      !profile.timeline && 'Whether this is weeks, months, or early exploration',
-      !profile.blockerConfirmed && 'Whether we have identified the real decision',
-      profile.blockerConfirmed && !blockerIsResolved(profile) && 'What concern is bigger than the one we first identified'
-    ].filter(Boolean);
-
-    if (!profile.unknowns.length) {
-      profile.unknowns = ['The real numbers needed to compare your best options'];
-    }
-
-    profile.roadmap = [
-      { text: 'Tell Russ what changed', complete: !!profile.motivation, current: !profile.motivation },
-      { text: 'Define what success looks like', complete: !!profile.successLooksLike, current: !!profile.motivation && !profile.successLooksLike },
-      { text: 'Clarify your timing', complete: !!profile.timeline, current: !!profile.successLooksLike && !profile.timeline },
-      { text: 'Identify the biggest decision', complete: blockerIsResolved(profile), current: !!profile.timeline && !blockerIsResolved(profile) },
-      { text: 'Build your personalized next step', complete: profile.readiness >= 80, current: blockerIsResolved(profile) && profile.readiness < 80 }
-    ];
-
-    return profile;
-  }
-
   function begin(path) {
     const profile = freshProfile();
     const signal = pathSignals[path] || pathSignals.other;
     profile.path = path;
     profile.lifeEvent = signal[0];
-    profile.blocker = signal[1];
+    profile.centralDecision = signal[1];
     profile.decisionProfile = signal[2];
     return save(hydrate(profile));
   }
 
-  function record(profile, field, answer) {
-    if (!profile || !field || !answer) return profile;
+  function clean(value) {
+    return String(value || '').trim();
+  }
 
-    profile[field] = answer;
+  function contains(text, terms) {
+    const lower = text.toLowerCase();
+    return terms.some((term) => lower.includes(term));
+  }
 
-    if (field === 'blockerDetails') {
-      profile.blocker = answer;
+  function addEvidence(item, answer) {
+    if (!item.evidence.includes(answer)) item.evidence.push(answer);
+  }
+
+  function complete(item, summary, confidence = 90) {
+    item.status = STATES.DONE;
+    item.confidence = confidence;
+    item.summary = summary;
+  }
+
+  function investigate(item, summary, confidence = 45) {
+    item.status = STATES.INVESTIGATING;
+    item.confidence = Math.max(item.confidence, confidence);
+    item.summary = summary || item.summary;
+  }
+
+  function detectHumanMoment(answer) {
+    const text = answer.toLowerCase();
+    if (/(pregnan|baby|third child|second child|new child|expecting)/.test(text)) return { type: 'baby', text: "That's great—congratulations." };
+    if (/(engaged|getting married|wedding)/.test(text)) return { type: 'marriage', text: "That's great—congratulations." };
+    if (/(promotion|new job|job offer)/.test(text)) return { type: 'job', text: "That's great—congratulations." };
+    if (/(retir|retirement)/.test(text)) return { type: 'retirement', text: 'Congratulations. That is a big milestone.' };
+    if (/(passed away|died|death|lost my|loss of)/.test(text)) return { type: 'loss', text: "I'm sorry to hear that." };
+    if (/(divorc|separat)/.test(text)) return { type: 'divorce', text: "I'm sorry you're going through that." };
+    return null;
+  }
+
+  function infer(profile, answer) {
+    const text = clean(answer);
+    const lower = text.toLowerCase();
+    const d = profile.discoveries;
+    const updates = [];
+
+    const familyExpansion = /(pregnan|baby|third child|second child|new child|expecting|growing family)/.test(lower);
+    const spaceReason = /(outgrow|too small|more space|need.*bedroom|bigger house)/.test(lower);
+    const downsizeReason = /(too big|downsiz|less maintenance|empty nest|kids moved)/.test(lower);
+    const workReason = /(new job|job transfer|relocat|work changed|commute)/.test(lower);
+    const financialReason = /(payment|mortgage|money|afford|equity|financial)/.test(lower);
+
+    addEvidence(d.why, text);
+    if (familyExpansion) {
+      complete(d.why, 'The family is expanding and the current home no longer provides enough space.', 98);
+      updates.push('why');
+    } else if (spaceReason) {
+      investigate(d.why, 'The current home may no longer provide enough space.', 55);
+      updates.push('why');
+    } else if (downsizeReason) {
+      complete(d.why, 'The current home is larger or harder to maintain than the next chapter requires.', 92);
+      updates.push('why');
+    } else if (workReason) {
+      complete(d.why, 'A work change is creating the need to reconsider where or how they live.', 92);
+      updates.push('why');
+    } else if (financialReason && d.why.status !== STATES.DONE) {
+      investigate(d.why, 'A financial consideration is affecting the decision.', 55);
+      updates.push('why');
+    } else if (d.why.status === STATES.UNKNOWN) {
+      investigate(d.why, text, 35);
+      updates.push('why');
     }
 
-    profile.answers.push({ field, answer, at: new Date().toISOString() });
+    if (/(within 30 days|next month|as soon as|quickly|immediately)/.test(lower)) complete(d.timeline, 'Within roughly 30 days.', 95);
+    else if (/(3.?6 months|few months|this summer|this fall|this spring)/.test(lower)) complete(d.timeline, 'Within the next three to six months.', 92);
+    else if (/(later this year|end of the year)/.test(lower)) complete(d.timeline, 'Later this year.', 90);
+    else if (/(just exploring|not in a rush|someday|planning ahead)/.test(lower)) complete(d.timeline, 'Early exploration with no immediate deadline.', 90);
+    else if (/(due in|baby.*due|before school|school starts|by august|by december|by october)/.test(lower)) {
+      addEvidence(d.timeline, text);
+      investigate(d.timeline, 'There is a life-event deadline that should shape the plan.', 70);
+    }
+
+    if (contains(lower, ['school district', 'schools', 'neighborhood', 'area', 'stay nearby', 'closer to family', 'move to'])) {
+      addEvidence(d.location, text);
+      investigate(d.location, text, 65);
+    }
+
+    if (contains(lower, ['bedroom', 'bathroom', 'yard', 'single story', 'one story', 'garage', 'office', 'more space', 'bigger'])) {
+      addEvidence(d.homeNeeds, text);
+      investigate(d.homeNeeds, text, 65);
+    }
+
+    if (contains(lower, ['sell first', 'buy first', 'contingent', 'two payments', 'bridge loan', 'cash to buy'])) {
+      addEvidence(d.financialPath, text);
+      complete(d.financialPath, text, 88);
+    }
+
+    if (contains(lower, ['worried', 'concern', 'afraid', 'problem', 'hard part', 'obstacle', 'stuck'])) {
+      addEvidence(d.obstacle, text);
+      investigate(d.obstacle, text, 60);
+    }
+
+    profile.lastHumanMoment = detectHumanMoment(text);
+    profile.answers.push({ answer: text, updates, at: new Date().toISOString() });
     return save(hydrate(profile));
   }
 
+  function hydrate(profile) {
+    const completed = discoveryOrder.filter((key) => profile.discoveries[key].status === STATES.DONE).length;
+    const active = discoveryOrder.filter((key) => profile.discoveries[key].status !== STATES.UNKNOWN).length;
+    profile.readiness = Math.min(10 + completed * 14 + Math.max(0, active - completed) * 5, 100);
+    profile.stage = profile.readiness >= 80 ? 'Ready to Act' : profile.readiness >= 55 ? 'Planning' : profile.readiness >= 30 ? 'Clarifying' : 'Exploring';
+    profile.unknowns = discoveryOrder
+      .filter((key) => profile.discoveries[key].status !== STATES.DONE)
+      .map((key) => profile.discoveries[key].label);
+    profile.roadmap = discoveryOrder.map((key) => ({
+      key,
+      text: profile.discoveries[key].label,
+      complete: profile.discoveries[key].status === STATES.DONE,
+      current: false
+    }));
+    const next = chooseNextDiscovery(profile);
+    const current = profile.roadmap.find((item) => item.key === next);
+    if (current) current.current = true;
+    return profile;
+  }
+
+  function chooseNextDiscovery(profile) {
+    const d = profile.discoveries;
+    if (d.why.status !== STATES.DONE) return 'why';
+    if (d.timeline.status !== STATES.DONE) return 'timeline';
+    if (d.location.status !== STATES.DONE) return 'location';
+    if (d.homeNeeds.status !== STATES.DONE) return 'homeNeeds';
+    if (d.financialPath.status !== STATES.DONE) return 'financialPath';
+    if (d.obstacle.status !== STATES.DONE) return 'obstacle';
+    return 'complete';
+  }
+
   function nextQuestion(profile) {
-    if (!profile.motivation) {
-      return {
-        field: 'motivation',
-        text: 'Before we talk about the house, what changed recently that put this thought on your mind?',
-        replies: ['Our family or lifestyle changed', 'The house no longer fits', 'Money or work changed', 'We are planning ahead']
-      };
-    }
+    const key = chooseNextDiscovery(profile);
+    const d = profile.discoveries;
 
-    if (!profile.successLooksLike) {
+    if (key === 'why') {
+      const hasInitialReason = d.why.status === STATES.INVESTIGATING;
       return {
-        field: 'successLooksLike',
-        text: 'Six months from now, what would make you say this was the right decision?',
-        replies: ['More financial certainty', 'A less stressful home', 'A smooth move', 'Knowing we made the smart choice']
-      };
-    }
-
-    if (!profile.timeline) {
-      return {
-        field: 'timeline',
-        text: 'How soon would you ideally want clarity or a plan?',
-        replies: ['Within 30 days', 'Within 3–6 months', 'Later this year', 'I am only exploring']
-      };
-    }
-
-    if (!profile.blockerConfirmed) {
-      return {
-        field: 'blockerConfirmed',
-        text: `Let me make sure I have this right. The biggest decision may be ${profile.blocker.toLowerCase()}. Does that feel accurate?`,
-        replies: ['Yes, exactly', 'Partly, but there is more', 'No, something else is bigger']
-      };
-    }
-
-    if (!blockerIsResolved(profile)) {
-      return {
-        field: 'blockerDetails',
-        text: 'What concern feels bigger or still needs to be included?',
+        discovery: key,
+        reason: 'The root cause is not clear enough to guide useful advice.',
+        text: hasInitialReason ? 'Why do you feel that way?' : 'What changed that made you start thinking about a move?',
         replies: []
       };
     }
-
-    return {
-      field: 'complete',
-      text: 'I understand enough to give you a useful first roadmap. The next step is not automatically listing—it is replacing assumptions with the right numbers.',
-      replies: []
-    };
+    if (key === 'timeline') return { discovery: key, reason: 'Timing determines which strategies are realistic.', text: 'When would you ideally want the move completed?', replies: ['Within 30 days', 'Within 3–6 months', 'Later this year', 'Just exploring'] };
+    if (key === 'location') return { discovery: key, reason: 'Location and schools shape the search before property details do.', text: 'Have you started thinking about where you would like to live, or will schools drive that decision?', replies: ['Stay in the same area', 'Schools will drive it', 'Closer to family or work', 'We are still open'] };
+    if (key === 'homeNeeds') return { discovery: key, reason: 'The next home must solve the problem that created the move.', text: 'What does the next house need to have that this one does not?', replies: ['More bedrooms', 'A larger yard', 'A better layout', 'Less maintenance'] };
+    if (key === 'financialPath') return { discovery: key, reason: 'The order of selling and buying changes the financing and risk.', text: 'Do you need to sell this home before buying the next one, or could you buy first?', replies: ['We need to sell first', 'We may be able to buy first', 'We are not sure yet'] };
+    if (key === 'obstacle') return { discovery: key, reason: 'The biggest concern determines the safest next step.', text: 'What is the biggest concern you would want solved before moving forward?', replies: [] };
+    return { discovery: 'complete', reason: 'The essential discoveries are complete.', text: 'I understand enough to map out a practical first plan. The next step is putting real numbers around the options—not automatically listing the house.', replies: [] };
   }
 
   function summary(profile) {
     return {
       title: profile.decisionProfile,
       lifeEvent: profile.lifeEvent,
-      motivation: profile.motivation,
-      success: profile.successLooksLike,
-      timeline: profile.timeline,
-      blocker: profile.blocker,
+      centralDecision: profile.centralDecision,
+      discoveries: profile.discoveries,
       readiness: profile.readiness,
-      stage: profile.stage
+      stage: profile.stage,
+      unknowns: profile.unknowns,
+      roadmap: profile.roadmap
     };
   }
 
@@ -186,5 +253,5 @@
     return freshProfile();
   }
 
-  window.PraterDecisionEngine = { begin, load, record, nextQuestion, summary, save, reset };
+  window.PraterDecisionEngine = { STATES, begin, load, infer, nextQuestion, chooseNextDiscovery, summary, save, reset };
 })();
