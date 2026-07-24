@@ -16,6 +16,13 @@
   const readinessNote = document.getElementById('readiness-note');
   const decisionInsight = document.getElementById('decision-insight');
   const decisionBlocker = document.getElementById('decision-blocker');
+  const strategyPanel = document.getElementById('strategy-panel');
+  const strategyTitle = document.getElementById('strategy-title');
+  const strategyConfidence = document.getElementById('strategy-confidence');
+  const strategyExplanation = document.getElementById('strategy-explanation');
+  const strategyReasons = document.getElementById('strategy-reasons');
+  const strategyAlternativeWrap = document.getElementById('strategy-alternative-wrap');
+  const strategyAlternative = document.getElementById('strategy-alternative');
   const blueprint = document.getElementById('seller-blueprint');
   const blueprintTitle = document.getElementById('blueprint-title');
   const blueprintIntro = document.getElementById('blueprint-intro');
@@ -23,12 +30,16 @@
   const blueprintSuccess = document.getElementById('blueprint-success');
   const blueprintTimeline = document.getElementById('blueprint-timeline');
   const blueprintBlocker = document.getElementById('blueprint-blocker');
+  const blueprintStrategy = document.getElementById('blueprint-strategy');
+  const blueprintStrategyConfidence = document.getElementById('blueprint-strategy-confidence');
+  const blueprintStrategyReasons = document.getElementById('blueprint-strategy-reasons');
   const blueprintSteps = document.getElementById('blueprint-steps');
   const blueprintPrint = document.getElementById('blueprint-print');
 
   if (!room || !conversation || !chat || !window.PraterDecisionEngine) return;
 
   const Engine = window.PraterDecisionEngine;
+  const Strategy = window.PraterStrategyEngine || null;
   const Personality = window.RussPersonality || {};
 
   const paths = {
@@ -109,6 +120,7 @@
   let activePath = null;
   let profile = null;
   let currentQuestion = null;
+  let currentRecommendation = null;
 
   function addMessage(text, role = 'russ') {
     if (!text) return;
@@ -153,6 +165,33 @@
     return Object.values(profile.discoveries).filter((item) => item.status === Engine.STATES.DONE && item.summary);
   }
 
+  function updateStrategy() {
+    if (!Strategy || !profile) {
+      if (strategyPanel) strategyPanel.hidden = true;
+      currentRecommendation = null;
+      return;
+    }
+
+    currentRecommendation = Strategy.recommendation(profile);
+    const primary = currentRecommendation.primary;
+    const alternative = currentRecommendation.alternative;
+    const hasUsefulSignal = primary && (primary.reasons.length > 0 || completedDiscoveries().length >= 2);
+
+    if (!strategyPanel) return;
+    strategyPanel.hidden = !hasUsefulSignal;
+    if (!hasUsefulSignal) return;
+
+    strategyTitle.textContent = primary.title;
+    strategyConfidence.textContent = `${primary.confidence}% confidence`;
+    strategyExplanation.textContent = Strategy.explain(primary);
+    strategyReasons.innerHTML = primary.reasons.length
+      ? primary.reasons.slice(0, 3).map((reason) => `<li>${escapeHtml(reason)}</li>`).join('')
+      : '<li>This is the clearest working path based on what is known so far.</li>';
+
+    strategyAlternativeWrap.hidden = !alternative;
+    if (alternative) strategyAlternative.textContent = `${alternative.title} · ${alternative.confidence}% confidence`;
+  }
+
   function updatePanel() {
     if (!profile) return;
 
@@ -171,7 +210,7 @@
       return `<li class="${className}">${escapeHtml(item.text + suffix)}</li>`;
     }).join('');
 
-    readinessStage.textContent = profile.stage;
+    readinessStage.textContent = `${profile.readiness}%`;
     readinessBar.style.width = `${profile.readiness}%`;
     readinessTrack.setAttribute('aria-valuenow', String(profile.readiness));
     readinessNote.textContent = profile.readiness >= 80
@@ -186,12 +225,17 @@
     const showObstacle = obstacle && obstacle.summary;
     decisionInsight.hidden = !showObstacle;
     if (showObstacle) decisionBlocker.textContent = obstacle.summary;
+
+    updateStrategy();
   }
 
   function renderBlueprint() {
     if (!profile || Engine.chooseNextDiscovery(profile) !== 'complete') return;
 
     const d = profile.discoveries;
+    const recommendation = currentRecommendation || (Strategy ? Strategy.recommendation(profile) : null);
+    const primary = recommendation && recommendation.primary;
+
     blueprint.hidden = false;
     blueprintTitle.textContent = profile.decisionProfile;
     blueprintIntro.textContent = Personality.blueprintIntro
@@ -201,6 +245,14 @@
     blueprintSuccess.textContent = d.homeNeeds.summary || 'A move that solves the underlying problem';
     blueprintTimeline.textContent = d.timeline.summary || 'Still being clarified';
     blueprintBlocker.textContent = d.obstacle.summary || 'No major blocker identified';
+
+    if (blueprintStrategy) blueprintStrategy.textContent = primary ? primary.title : 'Still being evaluated';
+    if (blueprintStrategyConfidence) blueprintStrategyConfidence.textContent = primary ? `${primary.confidence}%` : 'Not enough information yet';
+    if (blueprintStrategyReasons) {
+      blueprintStrategyReasons.innerHTML = primary && primary.reasons.length
+        ? primary.reasons.slice(0, 4).map((reason) => `<li>${escapeHtml(reason)}</li>`).join('')
+        : '<li>The recommendation will strengthen as the practical details are confirmed.</li>';
+    }
 
     const steps = Personality.nextSteps
       ? Personality.nextSteps({ blocker: d.obstacle.summary })
@@ -232,6 +284,9 @@
       if (confirmation) addMessage(confirmation);
       if (currentQuestion.discovery === 'complete') {
         addMessage(currentQuestion.text);
+        if (currentRecommendation && currentRecommendation.primary && Strategy) {
+          addMessage(Strategy.explain(currentRecommendation.primary));
+        }
         renderQuickReplies([]);
         renderBlueprint();
       } else {
@@ -262,11 +317,13 @@
 
     activePath = key;
     profile = Engine.begin(key);
+    currentRecommendation = null;
     currentQuestion = { discovery: 'why', reason: 'The opening thought needs context before advice is useful.', text: path.question, replies: path.replies };
 
     selectedThought.textContent = buttonText || path.title;
     chat.innerHTML = '';
     blueprint.hidden = true;
+    if (strategyPanel) strategyPanel.hidden = true;
     room.hidden = true;
     conversation.hidden = false;
     updatePanel();
@@ -284,9 +341,11 @@
     conversation.hidden = true;
     room.hidden = false;
     blueprint.hidden = true;
+    if (strategyPanel) strategyPanel.hidden = true;
     activePath = null;
     profile = null;
     currentQuestion = null;
+    currentRecommendation = null;
     chat.innerHTML = '';
     quickReplies.innerHTML = '';
     Engine.reset();
