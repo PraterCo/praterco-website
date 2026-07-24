@@ -4,6 +4,7 @@
 <meta name="description" content="Start with what is on your mind. Russ will help you think through selling before you decide.">
 <link rel="stylesheet" href="styles.css"><link rel="stylesheet" href="russ.css">
 <script defer src="js/prater-decision-engine.js"></script>
+<script defer src="js/prater-strategy-engine.js"></script>
 <script defer src="js/russ-personality.js"></script>
 <script defer src="js/seller-room.js"></script>
 </head><body class="russ-page">
@@ -48,12 +49,19 @@
 <aside class="decision-panel" id="decision-panel">
 <div class="decision-label">Before You Decide</div>
 <div class="readiness-block">
-<div class="readiness-copy"><span>Decision readiness</span><strong id="readiness-stage">Exploring</strong></div>
-<div class="readiness-track" role="progressbar" aria-label="Decision readiness" aria-valuemin="0" aria-valuemax="100" aria-valuenow="10"><span id="readiness-bar"></span></div>
+<div class="readiness-copy"><span>Russ understands you</span><strong id="readiness-stage">Exploring</strong></div>
+<div class="readiness-track" role="progressbar" aria-label="Russ understanding score" aria-valuemin="0" aria-valuemax="100" aria-valuenow="10"><span id="readiness-bar"></span></div>
 <p id="readiness-note">We’re just getting started. The goal is clarity, not pressure.</p>
 </div>
 <h3>Here’s what I’m hearing</h3><ul id="hearing-list"><li>We’ll build this together as you answer.</li></ul>
 <h3>What’s still unclear</h3><ul id="unknown-list"><li>Your timing, priorities, and what a good outcome looks like.</li></ul>
+<div class="strategy-panel" id="strategy-panel" hidden>
+<h3>How I’m thinking about it</h3>
+<div class="decision-insight"><span>Leading strategy</span><strong id="strategy-title"></strong><small id="strategy-confidence"></small></div>
+<p id="strategy-explanation"></p>
+<ul id="strategy-reasons"></ul>
+<div id="strategy-alternative-wrap" hidden><span>Also worth considering</span><strong id="strategy-alternative"></strong></div>
+</div>
 <h3>Your seller roadmap</h3><ol class="roadmap-list" id="roadmap-list"></ol>
 <div class="decision-insight" id="decision-insight" hidden><span>Your biggest decision</span><strong id="decision-blocker"></strong></div>
 <div class="decision-footer"><span>No pressure. No obligation.</span><a href="tel:+19162138844">Talk it through with Russ</a></div>
@@ -70,7 +78,10 @@
 <div><span>What success looks like</span><strong id="blueprint-success"></strong></div>
 <div><span>Your timing</span><strong id="blueprint-timeline"></strong></div>
 <div><span>Your biggest decision</span><strong id="blueprint-blocker"></strong></div>
+<div><span>Recommended strategy</span><strong id="blueprint-strategy"></strong></div>
+<div><span>Strategy confidence</span><strong id="blueprint-strategy-confidence"></strong></div>
 </div>
+<div class="blueprint-next"><h3>Why this path</h3><ul id="blueprint-strategy-reasons"></ul></div>
 <div class="blueprint-next"><h3>Your next three steps</h3><ol id="blueprint-steps"></ol></div>
 <div class="blueprint-actions"><button type="button" id="blueprint-print">Print or save this blueprint</button><a href="tel:+19162138844">Talk it through with Russ</a></div>
 </div>
