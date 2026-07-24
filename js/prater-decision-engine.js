@@ -26,12 +26,12 @@
   const discoveryOrder = ['why', 'timeline', 'location', 'homeNeeds', 'financialPath', 'obstacle'];
 
   function discovery(label) {
-    return { label, status: STATES.UNKNOWN, confidence: 0, summary: null, evidence: [] };
+    return { label, status: STATES.UNKNOWN, confidence: 0, summary: null, evidence: [], locked: false };
   }
 
   function freshProfile() {
     return {
-      version: 3,
+      version: 4,
       startedAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       path: null,
@@ -51,14 +51,25 @@
       stage: 'Exploring',
       unknowns: [],
       roadmap: [],
-      lastHumanMoment: null
+      lastHumanMoment: null,
+      acknowledgedMoments: []
     };
+  }
+
+  function hydrateStored(stored) {
+    const profile = { ...freshProfile(), ...stored };
+    profile.discoveries = { ...freshProfile().discoveries, ...(stored.discoveries || {}) };
+    Object.keys(profile.discoveries).forEach((key) => {
+      profile.discoveries[key] = { ...discovery(profile.discoveries[key].label), ...profile.discoveries[key] };
+    });
+    profile.version = 4;
+    return hydrate(profile);
   }
 
   function load() {
     try {
       const stored = JSON.parse(localStorage.getItem(STORAGE_KEY));
-      return stored && stored.version === 3 ? hydrate({ ...freshProfile(), ...stored }) : freshProfile();
+      return stored ? hydrateStored(stored) : freshProfile();
     } catch (_) {
       return freshProfile();
     }
@@ -90,33 +101,65 @@
   }
 
   function addEvidence(item, answer) {
-    if (!item.evidence.includes(answer)) item.evidence.push(answer);
+    if (answer && !item.evidence.includes(answer)) item.evidence.push(answer);
   }
 
   function complete(item, summary, confidence = 90) {
     item.status = STATES.DONE;
     item.confidence = confidence;
     item.summary = summary;
+    item.locked = true;
   }
 
   function investigate(item, summary, confidence = 45) {
+    if (item.locked) return;
     item.status = STATES.INVESTIGATING;
     item.confidence = Math.max(item.confidence, confidence);
     item.summary = summary || item.summary;
   }
 
-  function detectHumanMoment(answer) {
+  function detectHumanMoment(answer, profile) {
     const text = answer.toLowerCase();
-    if (/(pregnan|baby|third child|second child|new child|expecting)/.test(text)) return { type: 'baby', text: "That's great—congratulations." };
-    if (/(engaged|getting married|wedding)/.test(text)) return { type: 'marriage', text: "That's great—congratulations." };
-    if (/(promotion|new job|job offer)/.test(text)) return { type: 'job', text: "That's great—congratulations." };
-    if (/(retir|retirement)/.test(text)) return { type: 'retirement', text: 'Congratulations. That is a big milestone.' };
-    if (/(passed away|died|death|lost my|loss of)/.test(text)) return { type: 'loss', text: "I'm sorry to hear that." };
-    if (/(divorc|separat)/.test(text)) return { type: 'divorce', text: "I'm sorry you're going through that." };
-    return null;
+    let moment = null;
+    if (/(pregnan|baby|third child|second child|new child|expecting)/.test(text)) moment = { type: 'baby', text: "That's great—congratulations." };
+    else if (/(engaged|getting married|wedding)/.test(text)) moment = { type: 'marriage', text: "That's great—congratulations." };
+    else if (/(promotion|new job|job offer)/.test(text)) moment = { type: 'job', text: "That's great—congratulations." };
+    else if (/(retir|retirement)/.test(text)) moment = { type: 'retirement', text: 'Congratulations. That is a big milestone.' };
+    else if (/(passed away|died|death|lost my|loss of)/.test(text)) moment = { type: 'loss', text: "I'm sorry to hear that." };
+    else if (/(divorc|separat)/.test(text)) moment = { type: 'divorce', text: "I'm sorry you're going through that." };
+    if (!moment || profile.acknowledgedMoments.includes(moment.type)) return null;
+    profile.acknowledgedMoments.push(moment.type);
+    return moment;
   }
 
-  function infer(profile, answer) {
+  function summarizeTarget(target, answer) {
+    const text = clean(answer);
+    const summaries = {
+      timeline: text,
+      location: text,
+      homeNeeds: text,
+      financialPath: text,
+      obstacle: text
+    };
+    return summaries[target] || text;
+  }
+
+  function applyTargetAnswer(profile, target, answer) {
+    if (!target || target === 'complete' || !profile.discoveries[target]) return;
+    const item = profile.discoveries[target];
+    if (item.locked) return;
+    addEvidence(item, answer);
+
+    if (target === 'why') {
+      if (item.confidence >= 55 || answer.split(/\s+/).length >= 4) complete(item, item.summary || answer, Math.max(item.confidence, 85));
+      else investigate(item, answer, 55);
+      return;
+    }
+
+    complete(item, summarizeTarget(target, answer), 90);
+  }
+
+  function infer(profile, answer, target) {
     const text = clean(answer);
     const lower = text.toLowerCase();
     const d = profile.discoveries;
@@ -128,58 +171,63 @@
     const workReason = /(new job|job transfer|relocat|work changed|commute)/.test(lower);
     const financialReason = /(payment|mortgage|money|afford|equity|financial)/.test(lower);
 
-    addEvidence(d.why, text);
-    if (familyExpansion) {
-      complete(d.why, 'The family is expanding and the current home no longer provides enough space.', 98);
-      updates.push('why');
-    } else if (spaceReason) {
-      investigate(d.why, 'The current home may no longer provide enough space.', 55);
-      updates.push('why');
-    } else if (downsizeReason) {
-      complete(d.why, 'The current home is larger or harder to maintain than the next chapter requires.', 92);
-      updates.push('why');
-    } else if (workReason) {
-      complete(d.why, 'A work change is creating the need to reconsider where or how they live.', 92);
-      updates.push('why');
-    } else if (financialReason && d.why.status !== STATES.DONE) {
-      investigate(d.why, 'A financial consideration is affecting the decision.', 55);
-      updates.push('why');
-    } else if (d.why.status === STATES.UNKNOWN) {
-      investigate(d.why, text, 35);
-      updates.push('why');
+    if (!d.why.locked) {
+      addEvidence(d.why, text);
+      if (familyExpansion) {
+        complete(d.why, 'The family is expanding and the current home no longer provides enough space.', 98);
+        updates.push('why');
+      } else if (spaceReason) {
+        investigate(d.why, 'The current home may no longer provide enough space.', 55);
+        updates.push('why');
+      } else if (downsizeReason) {
+        complete(d.why, 'The current home is larger or harder to maintain than the next chapter requires.', 92);
+        updates.push('why');
+      } else if (workReason) {
+        complete(d.why, 'A work change is creating the need to reconsider where or how they live.', 92);
+        updates.push('why');
+      } else if (financialReason) {
+        investigate(d.why, 'A financial consideration is affecting the decision.', 55);
+        updates.push('why');
+      } else if (d.why.status === STATES.UNKNOWN) {
+        investigate(d.why, text, 35);
+        updates.push('why');
+      }
     }
 
-    if (/(within 30 days|next month|as soon as|quickly|immediately)/.test(lower)) complete(d.timeline, 'Within roughly 30 days.', 95);
-    else if (/(3.?6 months|few months|this summer|this fall|this spring)/.test(lower)) complete(d.timeline, 'Within the next three to six months.', 92);
-    else if (/(later this year|end of the year)/.test(lower)) complete(d.timeline, 'Later this year.', 90);
-    else if (/(just exploring|not in a rush|someday|planning ahead)/.test(lower)) complete(d.timeline, 'Early exploration with no immediate deadline.', 90);
-    else if (/(due in|baby.*due|before school|school starts|by august|by december|by october)/.test(lower)) {
-      addEvidence(d.timeline, text);
-      investigate(d.timeline, 'There is a life-event deadline that should shape the plan.', 70);
+    if (!d.timeline.locked) {
+      if (/(within 30 days|next month|as soon as|quickly|immediately)/.test(lower)) complete(d.timeline, 'Within roughly 30 days.', 95);
+      else if (/(3.?6 months|few months|this summer|this fall|this spring)/.test(lower)) complete(d.timeline, 'Within the next three to six months.', 92);
+      else if (/(later this year|end of the year)/.test(lower)) complete(d.timeline, 'Later this year.', 90);
+      else if (/(just exploring|not in a rush|someday|planning ahead)/.test(lower)) complete(d.timeline, 'Early exploration with no immediate deadline.', 90);
+      else if (/(due in|baby.*due|before school|school starts|by august|by december|by october)/.test(lower)) {
+        addEvidence(d.timeline, text);
+        investigate(d.timeline, 'There is a life-event deadline that should shape the plan.', 70);
+      }
     }
 
-    if (contains(lower, ['school district', 'schools', 'neighborhood', 'area', 'stay nearby', 'closer to family', 'move to'])) {
+    if (!d.location.locked && contains(lower, ['school district', 'schools', 'neighborhood', 'area', 'stay nearby', 'closer to family', 'move to'])) {
       addEvidence(d.location, text);
       investigate(d.location, text, 65);
     }
 
-    if (contains(lower, ['bedroom', 'bathroom', 'yard', 'single story', 'one story', 'garage', 'office', 'more space', 'bigger'])) {
+    if (!d.homeNeeds.locked && contains(lower, ['bedroom', 'bathroom', 'yard', 'single story', 'one story', 'garage', 'office', 'more space', 'bigger'])) {
       addEvidence(d.homeNeeds, text);
       investigate(d.homeNeeds, text, 65);
     }
 
-    if (contains(lower, ['sell first', 'buy first', 'contingent', 'two payments', 'bridge loan', 'cash to buy'])) {
+    if (!d.financialPath.locked && contains(lower, ['sell first', 'buy first', 'contingent', 'two payments', 'bridge loan', 'cash to buy'])) {
       addEvidence(d.financialPath, text);
       complete(d.financialPath, text, 88);
     }
 
-    if (contains(lower, ['worried', 'concern', 'afraid', 'problem', 'hard part', 'obstacle', 'stuck'])) {
+    if (!d.obstacle.locked && contains(lower, ['worried', 'concern', 'afraid', 'problem', 'hard part', 'obstacle', 'stuck'])) {
       addEvidence(d.obstacle, text);
       investigate(d.obstacle, text, 60);
     }
 
-    profile.lastHumanMoment = detectHumanMoment(text);
-    profile.answers.push({ answer: text, updates, at: new Date().toISOString() });
+    applyTargetAnswer(profile, target, text);
+    profile.lastHumanMoment = detectHumanMoment(text, profile);
+    profile.answers.push({ answer: text, target: target || null, updates, at: new Date().toISOString() });
     return save(hydrate(profile));
   }
 
@@ -188,9 +236,7 @@
     const active = discoveryOrder.filter((key) => profile.discoveries[key].status !== STATES.UNKNOWN).length;
     profile.readiness = Math.min(10 + completed * 14 + Math.max(0, active - completed) * 5, 100);
     profile.stage = profile.readiness >= 80 ? 'Ready to Act' : profile.readiness >= 55 ? 'Planning' : profile.readiness >= 30 ? 'Clarifying' : 'Exploring';
-    profile.unknowns = discoveryOrder
-      .filter((key) => profile.discoveries[key].status !== STATES.DONE)
-      .map((key) => profile.discoveries[key].label);
+    profile.unknowns = discoveryOrder.filter((key) => profile.discoveries[key].status !== STATES.DONE).map((key) => profile.discoveries[key].label);
     profile.roadmap = discoveryOrder.map((key) => ({
       key,
       text: profile.discoveries[key].label,
@@ -223,13 +269,13 @@
       return {
         discovery: key,
         reason: 'The root cause is not clear enough to guide useful advice.',
-        text: hasInitialReason ? 'Why do you feel that way?' : 'What changed that made you start thinking about a move?',
+        text: hasInitialReason ? 'Help me understand what is behind that.' : 'What changed that made you start thinking about a move?',
         replies: []
       };
     }
     if (key === 'timeline') return { discovery: key, reason: 'Timing determines which strategies are realistic.', text: 'When would you ideally want the move completed?', replies: ['Within 30 days', 'Within 3–6 months', 'Later this year', 'Just exploring'] };
     if (key === 'location') return { discovery: key, reason: 'Location and schools shape the search before property details do.', text: 'Have you started thinking about where you would like to live, or will schools drive that decision?', replies: ['Stay in the same area', 'Schools will drive it', 'Closer to family or work', 'We are still open'] };
-    if (key === 'homeNeeds') return { discovery: key, reason: 'The next home must solve the problem that created the move.', text: 'What does the next house need to have that this one does not?', replies: ['More bedrooms', 'A larger yard', 'A better layout', 'Less maintenance'] };
+    if (key === 'homeNeeds') return { discovery: key, reason: 'The next home must solve the problem that created the move.', text: 'What does the next house need to do better for you?', replies: ['More room for the family', 'Better schools or location', 'A better layout', 'Less maintenance'] };
     if (key === 'financialPath') return { discovery: key, reason: 'The order of selling and buying changes the financing and risk.', text: 'Do you need to sell this home before buying the next one, or could you buy first?', replies: ['We need to sell first', 'We may be able to buy first', 'We are not sure yet'] };
     if (key === 'obstacle') return { discovery: key, reason: 'The biggest concern determines the safest next step.', text: 'What is the biggest concern you would want solved before moving forward?', replies: [] };
     return { discovery: 'complete', reason: 'The essential discoveries are complete.', text: 'I understand enough to map out a practical first plan. The next step is putting real numbers around the options—not automatically listing the house.', replies: [] };
