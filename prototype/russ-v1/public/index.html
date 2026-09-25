@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex,nofollow,noarchive">
+  <title>Russ Private Review</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to conversation</a>
+  <header class="site-header">
+    <div class="brand" aria-label="Prater Framework">
+      <span class="brand-mark" aria-hidden="true">P</span>
+      <span><strong>PRATER</strong><small>PRIVATE REVIEW</small></span>
+    </div>
+    <div class="session-tools" id="sessionTools" hidden>
+      <span id="accountLabel"></span>
+      <button class="icon-button" id="logoutButton" type="button" title="Sign out" aria-label="Sign out">↪</button>
+    </div>
+  </header>
+
+  <main id="main">
+    <section class="sign-in" id="loginView" aria-labelledby="loginTitle">
+      <div class="sign-in-copy">
+        <p class="eyebrow">Authorized private review</p>
+        <h1 id="loginTitle">A quiet place to think through selling.</h1>
+        <p>Russ is Russell Prater’s digital guide. This private prototype is available only to approved participants and reviewers.</p>
+      </div>
+      <form id="loginForm" class="login-form" novalidate>
+        <h2>Sign in</h2>
+        <label for="email">Email</label>
+        <input id="email" name="email" type="email" autocomplete="username" required>
+        <label for="password">Password</label>
+        <input id="password" name="password" type="password" autocomplete="current-password" required>
+        <button class="primary" type="submit">Continue</button>
+        <p class="form-status" id="loginStatus" role="alert"></p>
+      </form>
+    </section>
+
+    <section class="participant-shell" id="participantView" hidden>
+      <aside class="conversation-nav" aria-label="Conversation controls">
+        <p class="eyebrow">Seller conversation</p>
+        <h1>Talk with Russ</h1>
+        <p class="aside-copy">Share what matters in your own words. Russ will listen before offering a direction.</p>
+        <button class="primary" id="newConversationButton" type="button">Start a conversation</button>
+        <div id="conversationList" class="conversation-list"></div>
+        <button class="text-button danger" id="deleteButton" type="button" hidden>Delete this conversation</button>
+      </aside>
+
+      <section class="conversation-workspace" aria-labelledby="workspaceTitle">
+        <div class="empty-state" id="emptyState">
+          <p class="eyebrow">Private by design</p>
+          <h2 id="workspaceTitle">Your context should make the conversation better.</h2>
+          <p>Before starting, choose whether this private review may retain the conversation for continuity and authorized evaluation for up to 90 days.</p>
+          <label class="consent-choice">
+            <input id="developmentConsent" type="checkbox">
+            <span>I agree to this private conversation being retained for continuity and authorized review for up to 90 days. I can request deletion sooner.</span>
+          </label>
+          <button class="primary" id="consentStartButton" type="button">Agree and start</button>
+          <p class="form-status" id="startStatus" role="alert"></p>
+        </div>
+
+        <div id="conversationView" hidden>
+          <div class="workspace-heading">
+            <div>
+              <p class="eyebrow">Private conversation</p>
+              <h2>What are you weighing?</h2>
+            </div>
+            <p id="retentionLabel" class="retention-label"></p>
+          </div>
+          <div id="messages" class="messages" aria-label="Conversation history"></div>
+          <div id="announcement" class="sr-only" aria-live="polite" aria-atomic="true"></div>
+          <section id="understandingPanel" class="understanding" hidden aria-labelledby="understandingTitle">
+            <p class="eyebrow">Check my understanding</p>
+            <h3 id="understandingTitle">Is this right?</h3>
+            <p id="understandingText"></p>
+            <div class="button-row">
+              <button class="primary" id="confirmButton" type="button">Yes, that’s right</button>
+              <button class="secondary" id="correctButton" type="button">I want to correct something</button>
+            </div>
+            <div id="correctionArea" hidden>
+              <label for="correctionInput">What should I understand differently?</label>
+              <textarea id="correctionInput" maxlength="1000"></textarea>
+              <button class="primary" id="submitCorrectionButton" type="button">Update my understanding</button>
+            </div>
+          </section>
+
+          <section id="continuationPanel" class="continuation" hidden aria-labelledby="continueTitle">
+            <p class="eyebrow">Continue with Russell</p>
+            <h3 id="continueTitle">Choose what feels useful.</h3>
+            <div class="continuation-options">
+              <button data-channel="call" type="button"><strong>Call Russell</strong><span>Start a phone call now</span></button>
+              <button data-channel="text" type="button"><strong>Text Russell</strong><span>Open a text message</span></button>
+              <button data-channel="contact" type="button"><strong>Ask Russell to contact me</strong><span>Leave the minimum contact detail</span></button>
+            </div>
+            <div id="handoffPanel" class="handoff" hidden>
+              <h4 id="handoffHeading">Share context with Russell?</h4>
+              <p>Your ordered conversation, corrections, confirmed understanding, and a short supplemental summary will be shared with Russell so you do not need to start over.</p>
+              <p>You may call or text without sharing this conversation.</p>
+              <div id="contactFields" hidden>
+                <label for="contactName">Name</label>
+                <input id="contactName" maxlength="120" autocomplete="name">
+                <label for="contactReply">Phone number or email</label>
+                <input id="contactReply" maxlength="200" autocomplete="email">
+              </div>
+              <label class="consent-choice">
+                <input id="handoffConsent" type="checkbox">
+                <span>I agree to share this conversation with Russell for this follow-up.</span>
+              </label>
+              <div class="button-row">
+                <button class="primary" id="shareButton" type="button">Share and continue</button>
+                <a class="secondary link-button" id="withoutSharingLink" href="#">Continue without sharing</a>
+              </div>
+              <p class="form-status" id="handoffStatus" role="alert"></p>
+            </div>
+          </section>
+
+          <form id="composer" class="composer">
+            <label for="messageInput">Your message</label>
+            <div class="composer-row">
+              <textarea id="messageInput" maxlength="2000" rows="2" placeholder="Write in your own words"></textarea>
+              <button class="primary" type="submit">Send</button>
+            </div>
+            <div id="quickReplies" class="quick-replies" aria-label="Optional quick replies"></div>
+            <p class="form-status" id="messageStatus" role="alert"></p>
+          </form>
+        </div>
+      </section>
+    </section>
+
+    <section class="review-shell" id="russellView" hidden>
+      <aside class="review-list">
+        <p class="eyebrow">Consented handoffs</p>
+        <h1>Russell review</h1>
+        <p>Only conversations affirmatively shared for follow-up appear here.</p>
+        <div id="handoffList"></div>
+      </aside>
+      <section class="handoff-detail" id="handoffDetail" aria-live="polite">
+        <h2>Select a handoff</h2>
+      </section>
+    </section>
+
+    <section class="review-shell" id="reviewerView" hidden>
+      <div class="review-note">
+        <p class="eyebrow">Purpose-bound review</p>
+        <h1>Quality review</h1>
+        <p>Automated evaluation uses synthetic conversations. Access to retained participant conversations requires a documented review purpose and is not exposed in this prototype screen.</p>
+      </div>
+    </section>
+  </main>
+  <script type="module" src="/app.js"></script>
+</body>
+</html>
