@@ -2,6 +2,8 @@
 
 This isolated Node.js 24 application implements the bounded, private/non-public WO-002 seller conversation slice. It does not replace or modify the production homepage and is not approved for public traffic.
 
+Behavior version `seller-reference-2.0.0` follows the Russ Bible next-move precedence. It selects an answer, professional boundary, recovery, human continuation, direction, confirmation, or one useful question from the visitor's meaning rather than advancing by message count.
+
 ## Local private review
 
 1. Use Node.js 24 or newer.
@@ -53,6 +55,7 @@ All automated fixtures are synthetic. Tests do not ingest retained conversations
 - Passwords use scrypt with individual salts. Session cookies contain opaque random identifiers; only keyed hashes are stored.
 - Conversations expire no later than 90 days. Expiry runs at startup and once every 24 hours while the process is running. Participants can delete earlier.
 - Audit events record access and lifecycle metadata without copying conversation or contact content.
+- Private working understanding stores meaning categories, current facts, priorities, tradeoffs, uncertainty, sensitivity, corrections, and staleness metadata as encrypted server-side state. Participant responses never expose those fields, internal modes, source sequencing, or correction provenance.
 - No automatic backup is enabled. An authorized administrator may run `npm run backup`; it uses SQLite's online backup API, restricts the file to the local account, verifies database integrity, and deletes backups older than the configured seven-day window. Backup files retain encrypted content but must still remain access-limited. Hosted backup/restore operations require a separate review.
 
 ## Incident, rollback, and shutdown
@@ -68,4 +71,4 @@ All automated fixtures are synthetic. Tests do not ingest retained conversations
 - The conversation provider is deterministic and bounded; it is not an external AI model and does not demonstrate open-domain behavior.
 - Call and text use device `tel:` and `sms:` actions. Contact requests remain in the protected Russell view; there is no external notification vendor.
 - Cross-device identity and resume, scheduling, public deployment, and production retention policy are out of scope.
-- Automated browser and accessibility-engine scanning are not included because the approved dependency-free architecture has no browser automation package. Manual keyboard, screen reader, 200% zoom, and 320 CSS pixel review are required before the review gates can pass.
+- Playwright is present in the engineering environment, but no browser binary is installed and approved network access blocks downloading one. Source-level accessibility checks and HTTP interaction tests run automatically; manual keyboard, screen reader, 200% zoom, mobile soft-keyboard, and rendered 320 CSS pixel review remain required before the Quality gate can pass.

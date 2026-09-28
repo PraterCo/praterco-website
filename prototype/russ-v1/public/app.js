@@ -1,52 +1,101 @@
 const $ = (selector) => document.querySelector(selector);
-const state = { session: null, conversation: null, selectedChannel: null };
+const state = { session: null, conversation: null, pendingResume: null, lastAction: null };
+
+class ApiError extends Error {
+  constructor(status, detail) {
+    super(detail?.message || 'The request could not be completed.');
+    this.status = status;
+    this.kind = detail?.kind || (status === 401 ? 'authentication' : 'service');
+    this.retryable = detail?.retryable ?? status >= 500;
+  }
+}
 
 async function api(path, options = {}) {
-  const headers = { ...(options.body ? { 'Content-Type': 'application/json' } : {}), ...(state.session?.csrf ? { 'X-CSRF-Token': state.session.csrf } : {}), ...options.headers };
-  const response = await fetch(path, { ...options, headers });
-  const data = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(data.error || 'The request could not be completed.');
+  let response;
+  try {
+    response = await fetch(path, {
+      ...options,
+      headers: {
+        ...(options.body ? { 'Content-Type': 'application/json' } : {}),
+        ...(state.session?.csrf ? { 'X-CSRF-Token': state.session.csrf } : {}),
+        ...options.headers
+      }
+    });
+  } catch {
+    throw new ApiError(0, { kind: 'service', message: 'The private service could not be reached. Your draft is still here.', retryable: true });
+  }
+  const type = response.headers.get('content-type') || '';
+  const data = type.includes('application/json') ? await response.json().catch(() => ({})) : {};
+  if (!response.ok) throw new ApiError(response.status, data.error || { kind: 'service', message: 'The service returned an unreadable response.', retryable: response.status >= 500 });
   return data;
 }
 
 function showOnly(view) {
   for (const element of [$('#loginView'), $('#participantView'), $('#russellView'), $('#reviewerView')]) element.hidden = element !== view;
 }
-
-function setStatus(selector, message) { $(selector).textContent = message; }
+function setText(selector, message = '') { $(selector).textContent = message; }
 function formatDate(value) { return new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric', year: 'numeric' }).format(new Date(value)); }
+function setBusy(value, message = '') {
+  $('#conversationView').setAttribute('aria-busy', String(value));
+  for (const button of $('#conversationView').querySelectorAll('button')) button.disabled = value;
+  setText('#messageStatus', message);
+}
+function focusHeading(selector) {
+  requestAnimationFrame(() => $(selector)?.focus());
+}
+
+function hideRecovery() { $('#recoveryPanel').hidden = true; }
+function showRecovery(error, retry = null) {
+  if (error.kind === 'authentication') {
+    state.session = null;
+    state.conversation = null;
+    $('#sessionTools').hidden = true;
+    showOnly($('#loginView'));
+    setText('#loginStatus', error.message);
+    $('#email').focus();
+    return;
+  }
+  state.lastAction = retry;
+  setText('#recoveryMessage', error.message || 'Your conversation and draft are still here.');
+  $('#retryButton').hidden = !retry;
+  $('#recoveryPanel').hidden = false;
+  focusHeading('#recoveryTitle');
+}
 
 async function initialize() {
   try {
     state.session = await api('/api/session');
-    $('#sessionTools').hidden = false;
-    $('#accountLabel').textContent = `${state.session.user.email} · ${state.session.user.role}`;
-    if (state.session.user.role === 'participant') {
-      showOnly($('#participantView'));
-      await loadConversationList();
-    } else if (['russell', 'administrator'].includes(state.session.user.role)) {
-      showOnly($('#russellView'));
-      await loadHandoffs();
-    } else {
-      showOnly($('#reviewerView'));
-    }
-  } catch {
+  } catch (error) {
     state.session = null;
     $('#sessionTools').hidden = true;
     showOnly($('#loginView'));
+    if (error.status && error.status !== 401) setText('#loginStatus', 'The private service is unavailable. Retry this page when it is available.');
     $('#email').focus();
+    return;
   }
+  $('#sessionTools').hidden = false;
+  $('#accountLabel').textContent = `${state.session.user.email} · ${state.session.user.role}`;
+  if (state.session.user.role === 'participant') {
+    showOnly($('#participantView'));
+    $('#callRussellLink').href = `tel:${state.session.russellPhone}`;
+    $('#textRussellLink').href = `sms:${state.session.russellPhone}`;
+    try { await loadConversationList(); }
+    catch (error) { showRecovery(error, loadConversationList); }
+  } else if (['russell', 'administrator'].includes(state.session.user.role)) {
+    showOnly($('#russellView'));
+    try { await loadHandoffs(); }
+    catch (error) { showRecovery(error, loadHandoffs); }
+  } else showOnly($('#reviewerView'));
 }
 
 $('#loginForm').addEventListener('submit', async (event) => {
   event.preventDefault();
-  setStatus('#loginStatus', 'Signing in…');
+  setText('#loginStatus', '');
   try {
     await api('/api/login', { method: 'POST', body: JSON.stringify({ email: $('#email').value, password: $('#password').value }) });
-    setStatus('#loginStatus', '');
     await initialize();
   } catch (error) {
-    setStatus('#loginStatus', error.message);
+    setText('#loginStatus', error.message);
     $('#password').focus();
   }
 });
@@ -58,6 +107,19 @@ $('#logoutButton').addEventListener('click', async () => {
   await initialize();
 });
 
+$('#retryButton').addEventListener('click', async () => {
+  hideRecovery();
+  if (!state.lastAction) return;
+  try { await state.lastAction(); }
+  catch (error) { showRecovery(error, state.lastAction); }
+});
+$('#recoveryBackButton').addEventListener('click', () => {
+  hideRecovery();
+  $('#resumePanel').hidden = true;
+  if (state.conversation) { $('#conversationView').hidden = false; $('#messageInput').focus(); }
+  else { $('#emptyState').hidden = false; $('#developmentConsent').focus(); }
+});
+
 async function loadConversationList() {
   const data = await api('/api/conversations');
   const list = $('#conversationList');
@@ -65,53 +127,81 @@ async function loadConversationList() {
   for (const conversation of data.conversations) {
     const button = document.createElement('button');
     button.type = 'button';
-    button.textContent = `Conversation · ${formatDate(conversation.updated_at)}`;
+    button.textContent = `Conversation · ${formatDate(conversation.lastActiveAt)}`;
     button.addEventListener('click', () => loadConversation(conversation.id));
     list.append(button);
   }
 }
 
-$('#newConversationButton').addEventListener('click', () => {
+function showStart() {
   state.conversation = null;
+  state.pendingResume = null;
   $('#conversationView').hidden = true;
+  $('#resumePanel').hidden = true;
   $('#emptyState').hidden = false;
+  $('#humanActions').hidden = true;
+  $('#shareContextButton').hidden = true;
   $('#developmentConsent').checked = false;
   $('#developmentConsent').focus();
-});
+}
+$('#newConversationButton').addEventListener('click', showStart);
 
 $('#consentStartButton').addEventListener('click', async () => {
-  setStatus('#startStatus', '');
+  setText('#startStatus', '');
   if (!$('#developmentConsent').checked) {
-    setStatus('#startStatus', 'Choose the consent option before starting a retained conversation.');
+    setText('#startStatus', 'Choose the retention option before starting this private review conversation.');
     $('#developmentConsent').focus();
     return;
   }
-  try {
+  const action = async () => {
     const data = await api('/api/conversations', { method: 'POST', body: JSON.stringify({ developmentConsent: true, noticeVersion: state.session.developmentNoticeVersion }) });
     state.conversation = data.conversation;
-    renderConversation(data.quickReplies);
+    renderConversation(data.controls);
     await loadConversationList();
-  } catch (error) { setStatus('#startStatus', error.message); }
+  };
+  try { await action(); }
+  catch (error) { showRecovery(error, action); }
 });
 
 async function loadConversation(id) {
-  try {
+  const action = async () => {
     const data = await api(`/api/conversations/${id}`);
     state.conversation = data.conversation;
-    renderConversation(data.quickReplies);
-  } catch (error) { setStatus('#startStatus', error.message); }
+    state.pendingResume = data;
+    $('#emptyState').hidden = true;
+    $('#conversationView').hidden = true;
+    $('#resumePanel').hidden = false;
+    setText('#resumeText', data.conversation.resume?.text || 'Choose how you would like to continue.');
+    focusHeading('#resumeTitle');
+  };
+  try { await action(); }
+  catch (error) { showRecovery(error, action); }
 }
 
-function renderConversation(quickReplies = []) {
+for (const button of document.querySelectorAll('[data-resume]')) {
+  button.addEventListener('click', () => {
+    const action = button.dataset.resume;
+    if (action === 'start') return showStart();
+    $('#resumePanel').hidden = true;
+    renderConversation(state.pendingResume?.controls || {}, { resumed: true });
+    if (action === 'correct') $('#messageInput').value = 'I want to correct something: ';
+    if (action === 'topic') $('#messageInput').value = 'Can we change the topic to ';
+    $('#messageInput').focus();
+  });
+}
+
+function renderConversation(controls = {}, { resumed = false } = {}) {
   $('#emptyState').hidden = true;
+  $('#resumePanel').hidden = true;
   $('#conversationView').hidden = false;
-  $('#deleteButton').hidden = false;
-  $('#retentionLabel').textContent = `Private review retention through ${formatDate(state.conversation.expiresAt)}`;
+  $('#humanActions').hidden = false;
+  $('#shareContextButton').hidden = false;
+  $('#retentionLabel').textContent = `Private review retained through ${formatDate(state.conversation.retentionThrough)}`;
   const messages = $('#messages');
   messages.replaceChildren();
   for (const message of state.conversation.messages) {
     const article = document.createElement('article');
-    article.className = `message message-${message.role === 'participant' ? 'participant' : 'russ'}`;
+    article.className = `message message-${message.role}`;
     const label = document.createElement('span');
     label.className = 'message-label';
     label.textContent = message.role === 'participant' ? 'You' : 'Russ';
@@ -120,35 +210,28 @@ function renderConversation(quickReplies = []) {
     article.append(label, content);
     messages.append(article);
   }
-
   const understanding = state.conversation.understanding;
-  const pending = understanding?.state === 'pending';
-  $('#understandingPanel').hidden = !pending;
-  if (pending) $('#understandingText').textContent = understanding.content;
+  $('#understandingPanel').hidden = !understanding?.needsResponse;
+  if (understanding?.needsResponse) setText('#understandingText', understanding.text);
   $('#correctionArea').hidden = true;
-
-  const continuation = state.conversation.messages.some((message) => message.kind === 'direction') || state.conversation.status === 'handoff-ready';
-  $('#continuationPanel').hidden = !continuation;
-  for (const button of document.querySelectorAll('.continuation-options button')) button.disabled = state.conversation.status === 'handoff-ready';
-  if (state.conversation.status === 'handoff-ready') {
-    $('#handoffPanel').hidden = false;
-    setStatus('#handoffStatus', 'This conversation has already been shared with Russell.');
-    $('#shareButton').disabled = true;
-  } else {
-    $('#shareButton').disabled = false;
-    setStatus('#handoffStatus', '');
+  renderQuickReplies(controls.quickReplies || []);
+  $('#handoffPanel').hidden = true;
+  $('#composer').hidden = state.conversation.state === 'shared';
+  if (state.conversation.state === 'shared') {
+    setText('#announcement', 'This continuation request is already available to Russell.');
+  } else if (!resumed) {
+    const latest = state.conversation.messages.at(-1);
+    setText('#announcement', latest?.role === 'russ' ? `Russ said: ${latest.content}` : 'Conversation updated.');
   }
-  $('#composer').hidden = pending || continuation;
-  if (state.conversation.status !== 'handoff-ready') $('#handoffPanel').hidden = true;
-  renderQuickReplies(quickReplies);
-  $('#announcement').textContent = state.conversation.messages.at(-1)?.role === 'russ' ? `Russ said: ${state.conversation.messages.at(-1).content}` : 'Conversation updated.';
-  if (!pending && !continuation) $('#messageInput').focus();
+  if (controls.openHuman) openHandoff(controls.openHuman === 'contact' ? 'contact' : null);
+  else if (controls.focus === 'understanding' && understanding?.needsResponse) focusHeading('#understandingTitle');
+  else if (!resumed && state.conversation.state !== 'shared') $('#messageInput').focus();
 }
 
 function renderQuickReplies(replies) {
   const container = $('#quickReplies');
   container.replaceChildren();
-  for (const reply of replies || []) {
+  for (const reply of replies) {
     const button = document.createElement('button');
     button.type = 'button';
     button.textContent = reply;
@@ -157,76 +240,104 @@ function renderQuickReplies(replies) {
   }
 }
 
+for (const button of document.querySelectorAll('[data-control-message]')) {
+  button.addEventListener('click', () => { $('#messageInput').value = button.dataset.controlMessage; $('#messageInput').focus(); });
+}
+
 $('#composer').addEventListener('submit', async (event) => {
   event.preventDefault();
   const content = $('#messageInput').value.trim();
-  if (!content) { setStatus('#messageStatus', 'Write a message before sending.'); $('#messageInput').focus(); return; }
+  if (!content) { setText('#messageError', 'Write a message before sending.'); $('#messageInput').focus(); return; }
   const draft = $('#messageInput').value;
-  setStatus('#messageStatus', 'Russ is considering what you shared…');
-  $('#composer button[type="submit"]').disabled = true;
-  try {
-    const data = await api(`/api/conversations/${state.conversation.id}/messages`, { method: 'POST', body: JSON.stringify({ content }) });
-    state.conversation = data.conversation;
-    $('#messageInput').value = '';
-    setStatus('#messageStatus', '');
-    renderConversation(data.quickReplies);
-  } catch (error) {
+  setText('#messageError', '');
+  const action = async () => {
+    setBusy(true, 'Russ is considering what you shared…');
+    try {
+      const data = await api(`/api/conversations/${state.conversation.id}/messages`, { method: 'POST', body: JSON.stringify({ content }) });
+      state.conversation = data.conversation;
+      $('#messageInput').value = '';
+      renderConversation(data.controls);
+    } finally { setBusy(false); }
+  };
+  try { await action(); }
+  catch (error) {
     $('#messageInput').value = draft;
-    setStatus('#messageStatus', `${error.message} Your draft is still here.`);
-  } finally { $('#composer button[type="submit"]').disabled = false; }
+    setBusy(false);
+    setText('#messageError', `${error.message} Your draft is still here.`);
+    showRecovery(error, action);
+  }
 });
 
 $('#confirmButton').addEventListener('click', () => updateUnderstanding({ action: 'confirm' }));
 $('#correctButton').addEventListener('click', () => { $('#correctionArea').hidden = false; $('#correctionInput').focus(); });
 $('#submitCorrectionButton').addEventListener('click', () => updateUnderstanding({ action: 'correct', correction: $('#correctionInput').value }));
-
 async function updateUnderstanding(payload) {
-  try {
-    const data = await api(`/api/conversations/${state.conversation.id}/understanding`, { method: 'POST', body: JSON.stringify(payload) });
-    state.conversation = data.conversation;
-    $('#correctionInput').value = '';
-    renderConversation();
-  } catch (error) { setStatus('#messageStatus', error.message); }
+  const action = async () => {
+    setBusy(true, 'Updating the conversation…');
+    try {
+      const data = await api(`/api/conversations/${state.conversation.id}/understanding`, { method: 'POST', body: JSON.stringify(payload) });
+      state.conversation = data.conversation;
+      $('#correctionInput').value = '';
+      renderConversation(data.controls);
+    } finally { setBusy(false); }
+  };
+  try { await action(); }
+  catch (error) { setBusy(false); showRecovery(error, action); }
 }
 
-for (const button of document.querySelectorAll('.continuation-options button')) {
-  button.addEventListener('click', () => {
-    state.selectedChannel = button.dataset.channel;
-    $('#handoffPanel').hidden = false;
-    $('#contactFields').hidden = state.selectedChannel !== 'contact';
-    const isCall = state.selectedChannel === 'call';
-    const isText = state.selectedChannel === 'text';
-    $('#withoutSharingLink').hidden = !(isCall || isText);
-    $('#withoutSharingLink').href = isCall ? `tel:${state.session.russellPhone}` : isText ? `sms:${state.session.russellPhone}` : '#';
-    $('#shareButton').textContent = state.selectedChannel === 'contact' ? 'Share and request contact' : `Share and ${state.selectedChannel}`;
-    $('#handoffHeading').focus?.();
-  });
+function openHandoff(channel = null) {
+  $('#handoffPanel').hidden = false;
+  setText('#handoffError', '');
+  setText('#handoffStatus', '');
+  if (channel) {
+    const radio = document.querySelector(`input[name="handoffChannel"][value="${channel}"]`);
+    if (radio) radio.checked = true;
+  }
+  updateContactFields();
+  focusHeading('#handoffHeading');
+}
+$('#contactRussellButton').addEventListener('click', () => openHandoff('contact'));
+$('#shareContextButton').addEventListener('click', () => openHandoff());
+$('#closeHandoffButton').addEventListener('click', () => { $('#handoffPanel').hidden = true; $('#messageInput').focus(); });
+for (const radio of document.querySelectorAll('input[name="handoffChannel"]')) radio.addEventListener('change', updateContactFields);
+function updateContactFields() {
+  const channel = document.querySelector('input[name="handoffChannel"]:checked')?.value;
+  $('#contactFields').hidden = channel !== 'contact';
 }
 
-$('#shareButton').addEventListener('click', async () => {
-  setStatus('#handoffStatus', '');
-  if (!$('#handoffConsent').checked) { setStatus('#handoffStatus', 'Choose the sharing consent option before continuing.'); $('#handoffConsent').focus(); return; }
-  const contact = state.selectedChannel === 'contact' ? { name: $('#contactName').value, replyTo: $('#contactReply').value } : null;
-  try {
-    await api(`/api/conversations/${state.conversation.id}/handoff`, { method: 'POST', body: JSON.stringify({ channel: state.selectedChannel, consent: true, noticeVersion: state.session.handoffNoticeVersion, contact }) });
-    state.conversation.status = 'handoff-ready';
-    setStatus('#handoffStatus', 'Your conversation was shared with Russell.');
-    $('#shareButton').disabled = true;
-    if (state.selectedChannel === 'call') window.location.href = `tel:${state.session.russellPhone}`;
-    if (state.selectedChannel === 'text') window.location.href = `sms:${state.session.russellPhone}`;
-  } catch (error) { setStatus('#handoffStatus', error.message); }
+$('#continueButton').addEventListener('click', async () => {
+  const channel = document.querySelector('input[name="handoffChannel"]:checked')?.value;
+  if (!channel) { setText('#handoffError', 'Choose Call, Text, or Ask Russell to contact you.'); return; }
+  const shareContext = $('#handoffConsent').checked;
+  if ((channel === 'call' || channel === 'text') && !shareContext) {
+    window.location.href = `${channel === 'call' ? 'tel' : 'sms'}:${state.session.russellPhone}`;
+    return;
+  }
+  const contact = channel === 'contact' ? { name: $('#contactName').value, replyTo: $('#contactReply').value } : null;
+  const action = async () => {
+    setText('#handoffError', '');
+    setText('#handoffStatus', 'Sending your choice…');
+    const data = await api(`/api/conversations/${state.conversation.id}/handoff`, {
+      method: 'POST', body: JSON.stringify({ channel, shareContext, consent: shareContext, noticeVersion: state.session.handoffNoticeVersion, contact })
+    });
+    state.conversation.state = 'shared';
+    setText('#handoffStatus', data.continuation.contextShared ? 'Your continuation request and conversation context are available to Russell.' : 'Your contact request is available to Russell. The conversation was not shared.');
+    $('#continueButton').disabled = true;
+    if (channel === 'call' || channel === 'text') window.location.href = `${channel === 'call' ? 'tel' : 'sms'}:${state.session.russellPhone}`;
+  };
+  try { await action(); }
+  catch (error) { setText('#handoffStatus', ''); setText('#handoffError', error.message); showRecovery(error, action); }
 });
 
 $('#deleteButton').addEventListener('click', async () => {
-  if (!state.conversation || !window.confirm('Delete this retained conversation and any handoff now? This cannot be undone.')) return;
-  try {
+  if (!state.conversation || !window.confirm('Delete this retained conversation and any continuation package now? This cannot be undone.')) return;
+  const action = async () => {
     await api(`/api/conversations/${state.conversation.id}`, { method: 'DELETE' });
-    state.conversation = null;
-    $('#conversationView').hidden = true;
-    $('#emptyState').hidden = false;
-    $('#deleteButton').hidden = true;
+    showStart();
     await loadConversationList();
-  } catch (error) { setStatus('#messageStatus', error.message); }
+  };
+  try { await action(); }
+  catch (error) { showRecovery(error, action); }
 });
 
 async function loadHandoffs() {
@@ -236,41 +347,48 @@ async function loadHandoffs() {
   for (const handoff of data.handoffs) {
     const button = document.createElement('button');
     button.type = 'button';
-    button.textContent = `${handoff.channel} · ${formatDate(handoff.consented_at)}`;
+    button.textContent = `${handoff.channel} · ${formatDate(handoff.receivedAt)}`;
     button.addEventListener('click', () => loadHandoff(handoff.id));
     list.append(button);
   }
 }
 
 async function loadHandoff(id) {
-  const data = await api(`/api/russell/handoffs/${id}`);
-  const detail = $('#handoffDetail');
-  detail.replaceChildren();
-  const heading = document.createElement('h2');
-  heading.textContent = 'Consented conversation';
-  const consent = document.createElement('p');
-  consent.textContent = `Shared for ${data.handoff.package.consent.purpose} on ${formatDate(data.handoff.consentedAt)}.`;
-  const summaryHeading = document.createElement('h3');
-  summaryHeading.textContent = 'Supplemental summary';
-  const summary = document.createElement('p');
-  summary.textContent = data.handoff.package.summary.content;
-  const transcriptHeading = document.createElement('h3');
-  transcriptHeading.textContent = 'Ordered conversation';
-  const transcript = document.createElement('ol');
-  for (const message of data.handoff.package.messages) {
-    const item = document.createElement('li');
-    item.textContent = `${message.role === 'participant' ? 'Participant' : 'Russ'}: ${message.content}`;
-    transcript.append(item);
-  }
-  detail.append(heading, consent, summaryHeading, summary, transcriptHeading, transcript);
-  if (data.handoff.contact) {
-    const contactHeading = document.createElement('h3');
-    contactHeading.textContent = 'Requested contact';
-    const contact = document.createElement('p');
-    contact.textContent = `${data.handoff.contact.name}: ${data.handoff.contact.replyTo}`;
-    detail.append(contactHeading, contact);
-  }
-  heading.focus?.();
+  const action = async () => {
+    const data = await api(`/api/russell/handoffs/${id}`);
+    const detail = $('#handoffDetail');
+    detail.replaceChildren();
+    const heading = document.createElement('h2');
+    heading.tabIndex = -1;
+    heading.textContent = data.handoff.package.contextShared ? 'Consented conversation' : 'Contact request';
+    detail.append(heading);
+    if (data.handoff.package.contextShared) {
+      const consent = document.createElement('p');
+      consent.textContent = `Shared for ${data.handoff.package.consent.purpose} on ${formatDate(data.handoff.consentedAt)}.`;
+      const summaryHeading = document.createElement('h3'); summaryHeading.textContent = 'Generated supplemental summary';
+      const summary = document.createElement('p'); summary.textContent = data.handoff.package.summary.content;
+      const transcriptHeading = document.createElement('h3'); transcriptHeading.textContent = 'Ordered conversation';
+      const transcript = document.createElement('ol');
+      for (const message of data.handoff.package.messages) {
+        const item = document.createElement('li');
+        item.textContent = `${message.role === 'participant' ? 'Participant' : 'Russ'}: ${message.content}`;
+        transcript.append(item);
+      }
+      detail.append(consent, summaryHeading, summary, transcriptHeading, transcript);
+    } else {
+      const note = document.createElement('p');
+      note.textContent = 'The participant requested contact without sharing the conversation.';
+      detail.append(note);
+    }
+    if (data.handoff.contact) {
+      const contactHeading = document.createElement('h3'); contactHeading.textContent = 'Requested contact';
+      const contact = document.createElement('p'); contact.textContent = `${data.handoff.contact.name}: ${data.handoff.contact.replyTo}`;
+      detail.append(contactHeading, contact);
+    }
+    heading.focus();
+  };
+  try { await action(); }
+  catch (error) { showRecovery(error, action); }
 }
 
 initialize();

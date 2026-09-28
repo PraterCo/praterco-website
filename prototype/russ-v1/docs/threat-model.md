@@ -15,6 +15,7 @@ Protected assets include raw messages, corrections, structured understanding, co
 | CSRF | Per-session CSRF token on every authenticated state change; strict same-site cookie; origin check on login | XSS would undermine same-origin controls |
 | XSS and injection | CSP, text-only DOM rendering, no HTML interpolation, prepared SQL, input length/type allowlists | Future rich content must receive a new review |
 | Content leakage | AES-256-GCM fields, no raw-content logs/analytics/URLs, generic failures, no client durable storage, content-free audit records | Process memory contains plaintext while serving an authorized request |
+| Private behavior/provenance leakage | Explicit participant serializer returns only rendered messages and functional visitor state; leakage tests reject internal mode, correction linkage, sequence, source sequence, provider version, and working state | Browser necessarily receives the participant's own ordered message content after authenticated continuation |
 | Login abuse | Individual accounts, scrypt, generic credential error, per-address throttling | In-memory throttle resets with the process; managed identity and MFA are required before remote hosting |
 | Prompt injection / model misuse | No external model; deterministic bounded provider treats input as data and exposes no tools | A future model integration requires structured output validation and a new threat review |
 | Malicious files or links | Attachments and rendered links are unsupported; input is displayed as text | Link support remains out of scope |
@@ -27,6 +28,7 @@ Protected assets include raw messages, corrections, structured understanding, co
 
 - Development retention and handoff sharing are distinct consent events.
 - Declining context sharing does not prevent independent call or text actions.
+- Contact Me can create a minimum contact request without transferring any conversation or summary.
 - Contact data is requested only for Contact Me and is encrypted separately.
 - Russell receives the ordered transcript only after consent; reviewers do not receive retained content by default.
 - The participant can delete early. Deletion cascades through messages, understanding, contact, consent-linked handoff, and summary.

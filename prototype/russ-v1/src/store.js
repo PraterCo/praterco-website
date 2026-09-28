@@ -44,6 +44,10 @@ export class Store {
         id TEXT PRIMARY KEY, conversation_id TEXT NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
         source_sequence INTEGER NOT NULL, content TEXT NOT NULL, state TEXT NOT NULL, created_at TEXT NOT NULL
       );
+      CREATE TABLE IF NOT EXISTS working_states (
+        conversation_id TEXT PRIMARY KEY REFERENCES conversations(id) ON DELETE CASCADE,
+        behavior_version TEXT NOT NULL, content TEXT NOT NULL, updated_at TEXT NOT NULL
+      );
       CREATE TABLE IF NOT EXISTS handoffs (
         id TEXT PRIMARY KEY, conversation_id TEXT UNIQUE NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
         participant_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE, channel TEXT NOT NULL,
@@ -149,7 +153,9 @@ export class Store {
       id: understandingRow.id, state: understandingRow.state, sourceSequence: understandingRow.source_sequence,
       content: decryptJson(understandingRow.content, this.config.encryptionKey, `${understandingRow.id}:understanding`).content
     } : null;
-    return { id: row.id, ownerId: row.owner_id, status: row.status, providerVersion: row.provider_version, createdAt: row.created_at, updatedAt: row.updated_at, expiresAt: row.expires_at, messages, understanding };
+    const stateRow = this.db.prepare('SELECT * FROM working_states WHERE conversation_id=?').get(id);
+    const workingState = stateRow ? decryptJson(stateRow.content, this.config.encryptionKey, `${id}:working-state`).state : null;
+    return { id: row.id, ownerId: row.owner_id, status: row.status, providerVersion: row.provider_version, createdAt: row.created_at, updatedAt: row.updated_at, expiresAt: row.expires_at, messages, understanding, workingState };
   }
 
   addMessage(conversationId, role, content, kind = 'message', correctionOf = null) {
@@ -172,16 +178,33 @@ export class Store {
     this.db.prepare('UPDATE understandings SET state=? WHERE id=?').run(state, id);
   }
 
-  createHandoff(conversation, participantId, channel, noticeVersion, contact, summary) {
+  saveWorkingState(conversationId, behaviorVersion, state) {
+    const timestamp = now();
+    const encrypted = encryptJson({ state }, this.config.encryptionKey, `${conversationId}:working-state`);
+    this.db.prepare(`INSERT INTO working_states VALUES (?,?,?,?)
+      ON CONFLICT(conversation_id) DO UPDATE SET behavior_version=excluded.behavior_version,content=excluded.content,updated_at=excluded.updated_at`)
+      .run(conversationId, behaviorVersion, encrypted, timestamp);
+    return state;
+  }
+
+  createHandoff(conversation, participantId, channel, noticeVersion, contact, summary, shareContext) {
     const id = randomUUID();
     const consentedAt = now();
+    const sequenceById = new Map(conversation.messages.map((message) => [message.id, message.sequence]));
+    const orderedMessages = conversation.messages.map((message) => ({
+      sequence: message.sequence,
+      role: message.role,
+      content: message.content,
+      correctionOfSequence: message.correctionOf ? sequenceById.get(message.correctionOf) || null : null
+    }));
     const packageValue = {
       conversationId: conversation.id,
       providerVersion: conversation.providerVersion,
-      messages: conversation.messages,
-      understanding: conversation.understanding,
-      summary: { content: summary, sourceThroughSequence: conversation.messages.at(-1)?.sequence || 0 },
-      consent: { affirmative: true, recipient: 'Russell Prater', purpose: 'continue the conversation with its context intact', noticeVersion, timestamp: consentedAt }
+      contextShared: shareContext,
+      messages: shareContext ? orderedMessages : [],
+      understanding: shareContext && conversation.understanding ? { content: conversation.understanding.content, state: conversation.understanding.state } : null,
+      summary: shareContext ? { content: summary, sourceThroughSequence: conversation.messages.at(-1)?.sequence || 0 } : null,
+      consent: shareContext ? { affirmative: true, recipient: 'Russell Prater', purpose: 'continue the conversation with its context intact', noticeVersion, timestamp: consentedAt } : null
     };
     this.db.prepare('INSERT INTO handoffs VALUES (?,?,?,?,?,?,?,?,?,?)').run(
       id, conversation.id, participantId, channel, noticeVersion, consentedAt,
@@ -190,8 +213,8 @@ export class Store {
       'ready', consentedAt
     );
     this.db.prepare('UPDATE conversations SET status=? WHERE id=?').run('handoff-ready', conversation.id);
-    this.audit(participantId, 'handoff.consented', 'handoff', id, 'success');
-    return { id, status: 'ready', channel, consentedAt };
+    this.audit(participantId, shareContext ? 'handoff.consented' : 'contact.requested', 'handoff', id, 'success');
+    return { id, status: 'ready', channel, consentedAt, contextShared: shareContext };
   }
 
   listHandoffs() {

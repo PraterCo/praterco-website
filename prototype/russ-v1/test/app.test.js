@@ -52,31 +52,43 @@ async function request(base, session, pathName, method = 'GET', body) {
   });
 }
 
-async function completeConversation(base, session) {
-  let response = await request(base, session, '/api/conversations', 'POST', { developmentConsent: true, noticeVersion: 'development-retention-v1' });
+async function createConversation(base, session) {
+  const response = await request(base, session, '/api/conversations', 'POST', { developmentConsent: true, noticeVersion: 'development-retention-v1' });
   assert.equal(response.status, 201);
-  let data = await response.json();
-  const id = data.conversation.id;
-  for (const content of ['We may relocate this summer.', 'Within three months.', 'A calm process matters most.']) {
-    response = await request(base, session, `/api/conversations/${id}/messages`, 'POST', { content });
-    assert.equal(response.status, 200);
-    data = await response.json();
-  }
-  assert.equal(data.conversation.understanding.state, 'pending');
-  response = await request(base, session, `/api/conversations/${id}/understanding`, 'POST', { action: 'confirm' });
-  assert.equal(response.status, 200);
-  return id;
+  return (await response.json()).conversation;
 }
 
-test('private routes require authentication and send restrictive headers', async (t) => {
+async function createConfirmedConversation(base, session) {
+  const conversation = await createConversation(base, session);
+  let response = await request(base, session, `/api/conversations/${conversation.id}/messages`, 'POST', { content: 'We need more space, but keeping the move affordable matters.' });
+  assert.equal(response.status, 200);
+  let data = await response.json();
+  assert.equal(data.conversation.understanding.needsResponse, true);
+  response = await request(base, session, `/api/conversations/${conversation.id}/understanding`, 'POST', { action: 'confirm' });
+  assert.equal(response.status, 200);
+  data = await response.json();
+  assert.equal(data.conversation.understanding, null);
+  return conversation.id;
+}
+
+function allKeys(value, keys = []) {
+  if (!value || typeof value !== 'object') return keys;
+  if (Array.isArray(value)) { for (const item of value) allKeys(item, keys); return keys; }
+  for (const [key, child] of Object.entries(value)) { keys.push(key); allKeys(child, keys); }
+  return keys;
+}
+
+test('private routes require authentication and use restrictive headers', async (t) => {
   const { base } = await fixture(t);
   const response = await fetch(`${base}/api/conversations`);
   assert.equal(response.status, 401);
+  const body = await response.json();
+  assert.equal(body.error.kind, 'authentication');
   assert.equal(response.headers.get('x-robots-tag'), 'noindex, nofollow, noarchive');
   assert.match(response.headers.get('content-security-policy'), /frame-ancestors 'none'/);
 });
 
-test('development consent and CSRF are affirmative gates', async (t) => {
+test('development consent and CSRF remain affirmative gates', async (t) => {
   const { base } = await fixture(t);
   const session = await login(base, 'seller@example.test', 'synthetic-seller-pass');
   let response = await request(base, { ...session, csrf: 'wrong' }, '/api/conversations', 'POST', { developmentConsent: true, noticeVersion: 'development-retention-v1' });
@@ -85,99 +97,178 @@ test('development consent and CSRF are affirmative gates', async (t) => {
   assert.equal(response.status, 400);
 });
 
-test('synthetic seller flow persists, corrects understanding, and resumes', async (t) => {
-  const { base, store } = await fixture(t);
+test('F-022 and F-029 immediate human requests bypass discovery and confirmation', async (t) => {
+  const { base } = await fixture(t);
   const session = await login(base, 'seller@example.test', 'synthetic-seller-pass');
-  const id = await completeConversation(base, session);
-  const before = store.getConversation(id, session.user.id);
-  const latestParticipant = before.messages.filter((message) => message.role === 'participant').at(-1);
-  store.saveUnderstanding(id, 'Old understanding', latestParticipant.sequence, 'pending');
-  let response = await request(base, session, `/api/conversations/${id}/understanding`, 'POST', { action: 'correct', correction: 'Actually, protecting our timing matters most.' });
-  assert.equal(response.status, 200);
-  let data = await response.json();
-  assert.equal(data.conversation.understanding.state, 'pending');
-  assert.match(data.conversation.understanding.content, /protecting our timing/i);
-  response = await request(base, session, `/api/conversations/${id}`);
-  data = await response.json();
-  assert.ok(data.conversation.messages.length >= 8);
+  for (const content of ['I just want to talk to Russell.', 'Call me.']) {
+    const conversation = await createConversation(base, session);
+    const response = await request(base, session, `/api/conversations/${conversation.id}/messages`, 'POST', { content });
+    assert.equal(response.status, 200);
+    const data = await response.json();
+    assert.equal(data.controls.humanAvailable, true);
+    assert.ok(['choices', 'contact'].includes(data.controls.openHuman));
+    assert.equal(data.conversation.understanding, null);
+    assert.match(data.conversation.messages.at(-1).content, /Russell now|contact you/i);
+  }
 });
 
-test('handoff needs separate consent and Russell receives ordered context plus summary', async (t) => {
+test('participant response schema excludes private classification and provenance', async (t) => {
+  const { base } = await fixture(t);
+  const session = await login(base, 'seller@example.test', 'synthetic-seller-pass');
+  const conversation = await createConversation(base, session);
+  let response = await request(base, session, `/api/conversations/${conversation.id}/messages`, 'POST', { content: 'Actually, next spring.' });
+  const data = await response.json();
+  const keys = new Set(allKeys(data));
+  for (const forbidden of ['kind', 'correctionOf', 'sequence', 'sourceSequence', 'providerVersion', 'workingState', 'behaviorVersion', 'id']) {
+    if (forbidden === 'id') {
+      assert.equal(Object.hasOwn(data.conversation.understanding || {}, 'id'), false);
+      continue;
+    }
+    assert.equal(keys.has(forbidden), false, `participant payload leaked ${forbidden}`);
+  }
+  assert.deepEqual(Object.keys(data.conversation.messages[0]).sort(), ['content', 'role']);
+});
+
+test('F-024 independent call/text needs no transfer and contact-only request shares no context', async (t) => {
   const { base } = await fixture(t);
   const seller = await login(base, 'seller@example.test', 'synthetic-seller-pass');
-  const id = await completeConversation(base, seller);
-  let response = await request(base, seller, `/api/conversations/${id}/handoff`, 'POST', { channel: 'contact', consent: false, noticeVersion: 'handoff-context-v1' });
-  assert.equal(response.status, 400);
-  response = await request(base, seller, `/api/conversations/${id}/handoff`, 'POST', {
-    channel: 'contact', consent: true, noticeVersion: 'handoff-context-v1',
+  const conversation = await createConversation(base, seller);
+  let response = await request(base, seller, `/api/conversations/${conversation.id}/handoff`, 'POST', {
+    channel: 'contact', shareContext: false, consent: false,
     contact: { name: 'Synthetic Seller', replyTo: 'seller@example.test' }
   });
   assert.equal(response.status, 201);
   const created = await response.json();
+  assert.equal(created.continuation.contextShared, false);
   const russell = await login(base, 'russell@example.test', 'synthetic-russell-pass');
-  response = await request(base, russell, `/api/russell/handoffs/${created.handoff.id}`);
-  assert.equal(response.status, 200);
-  const data = await response.json();
-  assert.ok(data.handoff.package.messages.length >= 8);
-  assert.ok(data.handoff.package.summary.sourceThroughSequence > 0);
-  assert.equal(data.handoff.contact.name, 'Synthetic Seller');
+  response = await request(base, russell, '/api/russell/handoffs');
+  const list = await response.json();
+  response = await request(base, russell, `/api/russell/handoffs/${list.handoffs[0].id}`);
+  const detail = await response.json();
+  assert.equal(detail.handoff.package.contextShared, false);
+  assert.deepEqual(detail.handoff.package.messages, []);
+  assert.equal(detail.handoff.package.summary, null);
 });
 
-test('roles and conversation owners are isolated', async (t) => {
+test('F-023 context handoff requires separate consent and preserves ordered context', async (t) => {
+  const { base } = await fixture(t);
+  const seller = await login(base, 'seller@example.test', 'synthetic-seller-pass');
+  const id = await createConfirmedConversation(base, seller);
+  let response = await request(base, seller, `/api/conversations/${id}/handoff`, 'POST', { channel: 'call', shareContext: true, consent: false, noticeVersion: 'handoff-context-v2' });
+  assert.equal(response.status, 400);
+  response = await request(base, seller, `/api/conversations/${id}/handoff`, 'POST', { channel: 'call', shareContext: true, consent: true, noticeVersion: 'handoff-context-v2' });
+  assert.equal(response.status, 201);
+  const russell = await login(base, 'russell@example.test', 'synthetic-russell-pass');
+  const listResponse = await request(base, russell, '/api/russell/handoffs');
+  const list = await listResponse.json();
+  const detailResponse = await request(base, russell, `/api/russell/handoffs/${list.handoffs[0].id}`);
+  const detail = await detailResponse.json();
+  assert.equal(detail.handoff.package.contextShared, true);
+  assert.ok(detail.handoff.package.messages.length >= 4);
+  assert.ok(detail.handoff.package.summary.sourceThroughSequence > 0);
+  assert.equal(detail.handoff.package.consent.affirmative, true);
+  assert.doesNotMatch(JSON.stringify(detail.handoff.package.messages), /\"kind\"|\"id\"|\"providerVersion\"/);
+});
+
+test('F-018 and F-025 resume is neutral and offers control without replaying sensitivity', async (t) => {
+  const { base } = await fixture(t);
+  const seller = await login(base, 'seller@example.test', 'synthetic-seller-pass');
+  const conversation = await createConversation(base, seller);
+  await request(base, seller, `/api/conversations/${conversation.id}/messages`, 'POST', { content: 'My husband died three weeks ago and I may need to move.' });
+  const response = await request(base, seller, `/api/conversations/${conversation.id}`);
+  const data = await response.json();
+  assert.equal(data.conversation.resume.required, true);
+  assert.match(data.conversation.resume.text, /continue|correct|change the topic|new conversation/i);
+  assert.doesNotMatch(data.conversation.resume.text, /husband|died|three weeks/i);
+});
+
+test('natural correction updates private memory while public summary omits provenance', async (t) => {
+  const { base, store } = await fixture(t);
+  const seller = await login(base, 'seller@example.test', 'synthetic-seller-pass');
+  const conversation = await createConversation(base, seller);
+  await request(base, seller, `/api/conversations/${conversation.id}/messages`, 'POST', { content: 'We may sell this spring.' });
+  const response = await request(base, seller, `/api/conversations/${conversation.id}/messages`, 'POST', { content: 'No, next spring.' });
+  const data = await response.json();
+  assert.match(data.conversation.understanding.text, /next spring/i);
+  assert.doesNotMatch(data.conversation.understanding.text, /current timing is this spring/i);
+  const privateConversation = store.getConversation(conversation.id, seller.user.id);
+  assert.equal(privateConversation.workingState.facts.timeline.value, 'next spring');
+  assert.equal(privateConversation.workingState.corrections.at(-1).superseded, 'this spring');
+});
+
+test('F-026 service failure is distinct from authentication failure and session remains valid', async (t) => {
+  const { base, store } = await fixture(t);
+  const seller = await login(base, 'seller@example.test', 'synthetic-seller-pass');
+  const original = store.listConversations.bind(store);
+  store.listConversations = () => { throw new Error('synthetic persistence failure'); };
+  let response = await request(base, seller, '/api/conversations');
+  assert.equal(response.status, 500);
+  let data = await response.json();
+  assert.deepEqual(data.error, { kind: 'service', message: 'Russ could not complete that request. Your conversation and draft are still here.', retryable: true });
+  store.listConversations = original;
+  response = await request(base, seller, '/api/session');
+  assert.equal(response.status, 200);
+  data = await response.json();
+  assert.equal(data.user.email, 'seller@example.test');
+});
+
+test('roles and conversation owners remain isolated', async (t) => {
   const { base } = await fixture(t);
   const seller = await login(base, 'seller@example.test', 'synthetic-seller-pass');
   const other = await login(base, 'other@example.test', 'synthetic-other-pass');
   const reviewer = await login(base, 'reviewer@example.test', 'synthetic-reviewer-pass');
-  const id = await completeConversation(base, seller);
-  let response = await request(base, other, `/api/conversations/${id}`);
+  const conversation = await createConversation(base, seller);
+  let response = await request(base, other, `/api/conversations/${conversation.id}`);
   assert.equal(response.status, 404);
   response = await request(base, reviewer, '/api/russell/handoffs');
   assert.equal(response.status, 403);
-  response = await request(base, seller, '/api/review/conversations');
+  response = await request(base, seller, '/api/review/evaluations');
   assert.equal(response.status, 403);
 });
 
-test('raw content is encrypted at rest and expiry deletes related records', async (t) => {
+test('raw content and private working state are encrypted at rest, then expire together', async (t) => {
   const { base, store, dataDir } = await fixture(t);
   const seller = await login(base, 'seller@example.test', 'synthetic-seller-pass');
-  const response = await request(base, seller, '/api/conversations', 'POST', { developmentConsent: true, noticeVersion: 'development-retention-v1' });
-  const data = await response.json();
-  const secretPhrase = 'synthetic private family situation';
-  await request(base, seller, `/api/conversations/${data.conversation.id}/messages`, 'POST', { content: secretPhrase });
+  const conversation = await createConversation(base, seller);
+  const phrase = 'synthetic private family situation';
+  await request(base, seller, `/api/conversations/${conversation.id}/messages`, 'POST', { content: phrase });
   const databaseBytes = fs.readFileSync(path.join(dataDir, 'russ-private.sqlite')).toString('latin1');
-  assert.equal(databaseBytes.includes(secretPhrase), false);
-  store.db.prepare('UPDATE conversations SET expires_at=? WHERE id=?').run('2000-01-01T00:00:00.000Z', data.conversation.id);
+  assert.equal(databaseBytes.includes(phrase), false);
+  assert.equal(databaseBytes.includes('questionPreference'), false);
+  store.db.prepare('UPDATE conversations SET expires_at=? WHERE id=?').run('2000-01-01T00:00:00.000Z', conversation.id);
   assert.equal(store.expireData(new Date()), 1);
-  assert.equal(store.getConversation(data.conversation.id, seller.user.id), null);
+  assert.equal(store.getConversation(conversation.id, seller.user.id), null);
 });
 
 test('participant can delete retained conversation early', async (t) => {
   const { base } = await fixture(t);
   const seller = await login(base, 'seller@example.test', 'synthetic-seller-pass');
-  const id = await completeConversation(base, seller);
-  let response = await request(base, seller, `/api/conversations/${id}`, 'DELETE');
+  const conversation = await createConversation(base, seller);
+  let response = await request(base, seller, `/api/conversations/${conversation.id}`, 'DELETE');
   assert.equal(response.status, 200);
-  response = await request(base, seller, `/api/conversations/${id}`);
+  response = await request(base, seller, `/api/conversations/${conversation.id}`);
   assert.equal(response.status, 404);
 });
 
-test('review evaluation evidence is role-protected and avoids raw transcript duplication', async (t) => {
+test('evaluation outcomes align to canonical labels', async (t) => {
   const { base } = await fixture(t);
   const reviewer = await login(base, 'reviewer@example.test', 'synthetic-reviewer-pass');
-  let response = await request(base, reviewer, '/api/review/evaluations', 'POST', {
-    scenarioVersion: 'synthetic-seller-1', prototypeVersion: 'test', outcome: 'needs-revision',
-    rubric: { acknowledgment: true, clarity: true, pressure: false }, defectReference: 'TEST-1'
+  for (const outcome of ['PASS', 'CONCERN', 'FAIL', 'NOT APPLICABLE']) {
+    const response = await request(base, reviewer, '/api/review/evaluations', 'POST', {
+      scenarioVersion: 'private-seller-1.0.0', prototypeVersion: 'test', outcome,
+      rubric: { listened: outcome }
+    });
+    assert.equal(response.status, 201);
+  }
+  const invalid = await request(base, reviewer, '/api/review/evaluations', 'POST', {
+    scenarioVersion: 'private-seller-1.0.0', prototypeVersion: 'test', outcome: 'needs-revision', rubric: {}
   });
-  assert.equal(response.status, 201);
-  response = await request(base, reviewer, '/api/review/evaluations');
-  const data = await response.json();
-  assert.equal(data.evaluations[0].rubric.acknowledgment, true);
-  assert.equal(JSON.stringify(data).includes('conversation text'), false);
+  assert.equal(invalid.status, 400);
 });
 
 test('manual backup is integrity-checked and readable', async (t) => {
   const { store } = await fixture(t);
-  const destination = await store.createBackup(new Date('2026-09-25T17:00:00.000Z'));
+  const destination = await store.createBackup(new Date('2026-09-28T17:00:00.000Z'));
   assert.equal(fs.existsSync(destination), true);
   assert.ok(fs.statSync(destination).size > 0);
 });
