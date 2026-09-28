@@ -5,6 +5,9 @@
 | Source | Requirement | Implementation evidence |
 | --- | --- | --- |
 | Product Bible, Mission and Conversation philosophy | Russ is Russell's digital extension; understand first, advise second; acknowledge meaning; one useful question; free text; remember context | `src/provider.js`; `public/index.html`; provider and HTTP-flow tests |
+| Russ Bible v1, Next-move model | Human request, correction, direct answer, boundary, recovery, and useful direction outrank automatic questioning | `selectNextMove()` and complete 32-fixture behavior suite |
+| Russ Bible v1, Client control and sensitive context | Skip, uncertainty, pause, topic change, repeated-question frustration, sensitive circumstances, and immediate Russell requests alter the next move | Participant controls; sensitive-context rules; F-005 to F-009, F-019 to F-022, F-030, F-032 tests |
+| Russ Bible v1, Memory | Meaning-based, correction-aware, sensitivity-aware, and neutral on resume | Encrypted `working_states`; neutral resume contract; correction and sensitive-paraphrase tests |
 | Product Bible, Client Benefit Principle | Collect, retain, use, and transfer only information serving continuity or responsible improvement | `docs/data-inventory.md`; development notice; minimum contact fields; content-free audits |
 | Product Bible, Public/private boundary | No visitor-facing scores, labels, confidence, unknowns, profiles, hidden reasoning, roadmaps, prompts, or private summaries | Public response shaping in `src/app.js`; leakage assertions in tests; no internal diagnostic UI |
 | Product Bible, Professional boundaries | Avoid unsupported legal, tax, lending, appraisal, construction, engineering, or investment conclusions | Versioned bounded responses in `src/provider.js`; direct-question unit test |
@@ -19,6 +22,7 @@
 - The public repository is a static site and has no suitable server trust boundary.
 - Existing browser-side seller code is evidence only and retains internal profiles in browser storage.
 - The prototype therefore remains isolated and does not modify public navigation, homepage behavior, or public deployment files.
+- Creative review found the prior implementation visually management-led and without the approved Prater character. The remediation uses the repository's approved Prater logo artwork as Russ's visible foundation and subordinates list/delete controls during active conversation.
 
 ## Engineering recommendations
 
