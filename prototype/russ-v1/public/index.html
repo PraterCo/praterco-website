@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="robots" content="noindex,nofollow,noarchive">
   <title>Russ Private Review</title>
   <link rel="stylesheet" href="/styles.css">
@@ -10,8 +10,8 @@
 <body>
   <a class="skip-link" href="#main">Skip to conversation</a>
   <header class="site-header">
-    <div class="brand" aria-label="Prater Framework">
-      <span class="brand-mark" aria-hidden="true">P</span>
+    <div class="brand" aria-label="Prater Framework private review">
+      <img src="/prater-logo.png" alt="">
       <span><strong>PRATER</strong><small>PRIVATE REVIEW</small></span>
     </div>
     <div class="session-tools" id="sessionTools" hidden>
@@ -23,6 +23,7 @@
   <main id="main">
     <section class="sign-in" id="loginView" aria-labelledby="loginTitle">
       <div class="sign-in-copy">
+        <img class="russ-portrait russ-portrait-large" src="/prater-logo.png" alt="Russ, Prater’s digital guide">
         <p class="eyebrow">Authorized private review</p>
         <h1 id="loginTitle">A quiet place to think through selling.</h1>
         <p>Russ is Russell Prater’s digital guide. This private prototype is available only to approved participants and reviewers.</p>
@@ -34,50 +35,78 @@
         <label for="password">Password</label>
         <input id="password" name="password" type="password" autocomplete="current-password" required>
         <button class="primary" type="submit">Continue</button>
-        <p class="form-status" id="loginStatus" role="alert"></p>
+        <p class="form-error" id="loginStatus" role="alert"></p>
       </form>
     </section>
 
     <section class="participant-shell" id="participantView" hidden>
-      <aside class="conversation-nav" aria-label="Conversation controls">
-        <p class="eyebrow">Seller conversation</p>
-        <h1>Talk with Russ</h1>
-        <p class="aside-copy">Share what matters in your own words. Russ will listen before offering a direction.</p>
-        <button class="primary" id="newConversationButton" type="button">Start a conversation</button>
-        <div id="conversationList" class="conversation-list"></div>
-        <button class="text-button danger" id="deleteButton" type="button" hidden>Delete this conversation</button>
+      <aside class="russ-presence" aria-label="Continue with Russell">
+        <img class="russ-portrait" src="/prater-logo.png" alt="Russ, Prater’s digital guide">
+        <p class="eyebrow">Talk with Russ</p>
+        <p class="presence-copy">Share what matters in your own words. You can pause or go directly to Russell at any time.</p>
+        <div class="human-actions" id="humanActions" hidden>
+          <a class="human-link" id="callRussellLink" href="#"><strong>Call Russell</strong><span>No conversation transfer</span></a>
+          <a class="human-link" id="textRussellLink" href="#"><strong>Text Russell</strong><span>No conversation transfer</span></a>
+          <button class="human-link" id="contactRussellButton" type="button"><strong>Ask Russell to contact me</strong><span>Only the contact detail needed</span></button>
+        </div>
+        <button class="text-button light" id="shareContextButton" type="button" hidden>Review conversation sharing</button>
       </aside>
 
       <section class="conversation-workspace" aria-labelledby="workspaceTitle">
+        <section class="recovery" id="recoveryPanel" hidden aria-labelledby="recoveryTitle">
+          <h2 id="recoveryTitle" tabindex="-1">We couldn’t complete that step.</h2>
+          <p id="recoveryMessage">Your conversation and draft are still here.</p>
+          <div class="button-row">
+            <button class="primary" id="retryButton" type="button">Retry</button>
+            <button class="secondary" id="recoveryBackButton" type="button">Back to conversations</button>
+          </div>
+        </section>
+
         <div class="empty-state" id="emptyState">
-          <p class="eyebrow">Private by design</p>
-          <h2 id="workspaceTitle">Your context should make the conversation better.</h2>
-          <p>Before starting, choose whether this private review may retain the conversation for continuity and authorized evaluation for up to 90 days.</p>
+          <div class="russ-welcome">
+            <img class="russ-portrait" src="/prater-logo.png" alt="">
+            <div><p class="eyebrow">Private conversation with Russ</p><h1 id="workspaceTitle">Start with what matters to you.</h1></div>
+          </div>
+          <p>This review remembers the conversation so you do not have to repeat yourself. Authorized reviewers may use it to improve how Russ listens and responds.</p>
           <label class="consent-choice">
             <input id="developmentConsent" type="checkbox">
             <span>I agree to this private conversation being retained for continuity and authorized review for up to 90 days. I can request deletion sooner.</span>
           </label>
           <button class="primary" id="consentStartButton" type="button">Agree and start</button>
-          <p class="form-status" id="startStatus" role="alert"></p>
+          <p class="form-error" id="startStatus" role="alert"></p>
         </div>
 
-        <div id="conversationView" hidden>
+        <section class="resume-panel" id="resumePanel" hidden aria-labelledby="resumeTitle">
+          <p class="eyebrow">Welcome back</p>
+          <h2 id="resumeTitle" tabindex="-1">Your conversation is still here.</h2>
+          <p id="resumeText"></p>
+          <div class="resume-actions">
+            <button class="primary" data-resume="continue" type="button">Continue</button>
+            <button class="secondary" data-resume="correct" type="button">Correct something</button>
+            <button class="secondary" data-resume="topic" type="button">Change topic</button>
+            <button class="text-button" data-resume="start" type="button">Start a new conversation</button>
+          </div>
+        </section>
+
+        <div id="conversationView" hidden aria-busy="false">
           <div class="workspace-heading">
-            <div>
-              <p class="eyebrow">Private conversation</p>
-              <h2>What are you weighing?</h2>
+            <div class="speaker-heading">
+              <img class="russ-portrait russ-portrait-small" src="/prater-logo.png" alt="">
+              <div><p class="eyebrow">Russ</p><h2>What are you weighing?</h2></div>
             </div>
             <p id="retentionLabel" class="retention-label"></p>
           </div>
-          <div id="messages" class="messages" aria-label="Conversation history"></div>
-          <div id="announcement" class="sr-only" aria-live="polite" aria-atomic="true"></div>
+
+          <div id="messages" class="messages" role="log" aria-label="Conversation history" aria-live="off"></div>
+          <div id="announcement" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></div>
+
           <section id="understandingPanel" class="understanding" hidden aria-labelledby="understandingTitle">
             <p class="eyebrow">Check my understanding</p>
-            <h3 id="understandingTitle">Is this right?</h3>
+            <h3 id="understandingTitle" tabindex="-1">Is this right?</h3>
             <p id="understandingText"></p>
             <div class="button-row">
               <button class="primary" id="confirmButton" type="button">Yes, that’s right</button>
-              <button class="secondary" id="correctButton" type="button">I want to correct something</button>
+              <button class="secondary" id="correctButton" type="button">Correct something</button>
             </div>
             <div id="correctionArea" hidden>
               <label for="correctionInput">What should I understand differently?</label>
@@ -86,34 +115,33 @@
             </div>
           </section>
 
-          <section id="continuationPanel" class="continuation" hidden aria-labelledby="continueTitle">
+          <section id="handoffPanel" class="handoff" hidden aria-labelledby="handoffHeading">
             <p class="eyebrow">Continue with Russell</p>
-            <h3 id="continueTitle">Choose what feels useful.</h3>
-            <div class="continuation-options">
-              <button data-channel="call" type="button"><strong>Call Russell</strong><span>Start a phone call now</span></button>
-              <button data-channel="text" type="button"><strong>Text Russell</strong><span>Open a text message</span></button>
-              <button data-channel="contact" type="button"><strong>Ask Russell to contact me</strong><span>Leave the minimum contact detail</span></button>
+            <h3 id="handoffHeading" tabindex="-1">Choose what Russell receives.</h3>
+            <p>Calling or texting does not share this conversation. If you choose to share context, Russell receives the ordered conversation, corrections, any confirmed understanding, and a generated summary that supplements rather than replaces the conversation.</p>
+            <p>You can keep talking with Russ, correct something, decline sharing, or continue independently.</p>
+            <fieldset class="channel-choice">
+              <legend>How would you like to continue?</legend>
+              <label><input type="radio" name="handoffChannel" value="call"> Call Russell</label>
+              <label><input type="radio" name="handoffChannel" value="text"> Text Russell</label>
+              <label><input type="radio" name="handoffChannel" value="contact"> Ask Russell to contact me</label>
+            </fieldset>
+            <div id="contactFields" hidden>
+              <label for="contactName">Name</label>
+              <input id="contactName" maxlength="120" autocomplete="name">
+              <label for="contactReply">Phone number or email</label>
+              <input id="contactReply" maxlength="200" autocomplete="email">
             </div>
-            <div id="handoffPanel" class="handoff" hidden>
-              <h4 id="handoffHeading">Share context with Russell?</h4>
-              <p>Your ordered conversation, corrections, confirmed understanding, and a short supplemental summary will be shared with Russell so you do not need to start over.</p>
-              <p>You may call or text without sharing this conversation.</p>
-              <div id="contactFields" hidden>
-                <label for="contactName">Name</label>
-                <input id="contactName" maxlength="120" autocomplete="name">
-                <label for="contactReply">Phone number or email</label>
-                <input id="contactReply" maxlength="200" autocomplete="email">
-              </div>
-              <label class="consent-choice">
-                <input id="handoffConsent" type="checkbox">
-                <span>I agree to share this conversation with Russell for this follow-up.</span>
-              </label>
-              <div class="button-row">
-                <button class="primary" id="shareButton" type="button">Share and continue</button>
-                <a class="secondary link-button" id="withoutSharingLink" href="#">Continue without sharing</a>
-              </div>
-              <p class="form-status" id="handoffStatus" role="alert"></p>
+            <label class="consent-choice share-choice">
+              <input id="handoffConsent" type="checkbox">
+              <span>Share this conversation with Russell so he can continue with the context intact.</span>
+            </label>
+            <div class="button-row">
+              <button class="primary" id="continueButton" type="button">Continue</button>
+              <button class="secondary" id="closeHandoffButton" type="button">Keep talking with Russ</button>
             </div>
+            <p class="form-error" id="handoffError" role="alert"></p>
+            <p class="form-status" id="handoffStatus" role="status"></p>
           </section>
 
           <form id="composer" class="composer">
@@ -122,31 +150,34 @@
               <textarea id="messageInput" maxlength="2000" rows="2" placeholder="Write in your own words"></textarea>
               <button class="primary" type="submit">Send</button>
             </div>
+            <div class="client-controls" aria-label="Conversation controls">
+              <button class="text-button" data-control-message="I don’t know." type="button">I don’t know</button>
+              <button class="text-button" data-control-message="I’d rather skip that." type="button">Skip</button>
+              <button class="text-button" data-control-message="Pause here." type="button">Pause</button>
+              <button class="text-button" data-control-message="Can we change the topic?" type="button">Change topic</button>
+            </div>
             <div id="quickReplies" class="quick-replies" aria-label="Optional quick replies"></div>
-            <p class="form-status" id="messageStatus" role="alert"></p>
+            <p class="form-status" id="messageStatus" role="status"></p>
+            <p class="form-error" id="messageError" role="alert"></p>
           </form>
+
+          <details class="conversation-management">
+            <summary>Conversation options</summary>
+            <button class="secondary" id="newConversationButton" type="button">Start another conversation</button>
+            <div id="conversationList" class="conversation-list"></div>
+            <button class="text-button danger" id="deleteButton" type="button">Delete this conversation</button>
+          </details>
         </div>
       </section>
     </section>
 
     <section class="review-shell" id="russellView" hidden>
-      <aside class="review-list">
-        <p class="eyebrow">Consented handoffs</p>
-        <h1>Russell review</h1>
-        <p>Only conversations affirmatively shared for follow-up appear here.</p>
-        <div id="handoffList"></div>
-      </aside>
-      <section class="handoff-detail" id="handoffDetail" aria-live="polite">
-        <h2>Select a handoff</h2>
-      </section>
+      <aside class="review-list"><p class="eyebrow">Consented handoffs</p><h1>Russell review</h1><p>Only contact requests and conversations shared for follow-up appear here.</p><div id="handoffList"></div></aside>
+      <section class="handoff-detail" id="handoffDetail" aria-live="polite"><h2>Select a handoff</h2></section>
     </section>
 
     <section class="review-shell" id="reviewerView" hidden>
-      <div class="review-note">
-        <p class="eyebrow">Purpose-bound review</p>
-        <h1>Quality review</h1>
-        <p>Automated evaluation uses synthetic conversations. Access to retained participant conversations requires a documented review purpose and is not exposed in this prototype screen.</p>
-      </div>
+      <div class="review-note"><p class="eyebrow">Purpose-bound review</p><h1>Quality review</h1><p>Automated evaluation uses synthetic conversations. Access to retained participant conversations requires a documented review purpose and is not exposed in this prototype screen.</p></div>
     </section>
   </main>
   <script type="module" src="/app.js"></script>
