@@ -68,7 +68,7 @@ function extractTimeline(text) {
 
 function extractContact(text) {
   const email = text.match(/\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/i)?.[0] || null;
-  const phone = text.match(/(?:\+?1[\s.-]?)?(?:\(?\d{3}\)?[\s.-]?)\d{3}[\s.-]?\d{4}\b/)?.[0] || null;
+  const phone = text.match(/(?:\+?1[\s.-]?)?(?:\(?\d{3}\)?[\s.-]?)\d{3}[\s.-]?\d{4}\b|\b\d{3}[\s.-]\d{4}\b/)?.[0] || null;
   if (email) return { method: 'email', value: email };
   if (phone) return { method: 'phone', value: phone };
   return null;
