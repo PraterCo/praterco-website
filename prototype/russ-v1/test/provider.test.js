@@ -78,3 +78,81 @@ test('human continuation and sensitive responses do not require another question
     assert.equal(questionCount(result.text), 0);
   }
 });
+
+
+test('F-018 stale remembered timing is not asserted as current', () => {
+  let prior = updateWorkingState(emptyWorkingState(), 'We plan to sell in June.', { timestamp: '2026-05-15T12:00:00.000Z' });
+  const result = selectNextMove({ text: "I'm back.", previousState: prior, now: '2026-09-28T12:00:00.000Z' });
+  assert.equal(result.mode, MODES.CLARIFY);
+  assert.equal(result.state.facts.timeline.status, 'stale');
+  assert.match(result.text, /earlier timing may no longer be current|does that plan still fit/i);
+  assert.doesNotMatch(result.text, /selling in june|since.*june/i);
+  assert.ok(questionCount(result.text) <= 1);
+});
+
+test('F-027 preserves multiple motivations without inventing a single real motive', () => {
+  const result = move("We need more room, my commute is awful, and we're worried about the cost of moving.");
+  assert.equal(result.state.facts.spaceNeed.value, true);
+  assert.equal(result.state.facts.commuteConcern.value, true);
+  assert.equal(result.state.facts.moveCostConcern.value, true);
+  const summary = buildUnderstanding(result.state);
+  assert.match(summary, /space|more room/i);
+  assert.match(summary, /commute/i);
+  assert.match(summary, /cost of moving/i);
+  assert.doesNotMatch(summary, /real reason|main reason|actually about|primarily/i);
+});
+
+test('F-029 captures visitor-provided contact for only the requested follow-up', () => {
+  const result = move('555-0100. Call me about selling.');
+  assert.equal(result.mode, MODES.HUMAN);
+  assert.equal(result.contactRequested, true);
+  assert.deepEqual(result.providedContact, { method: 'phone', replyTo: '555-0100' });
+  assert.equal(result.state.facts.contactValue.value, '555-0100');
+  assert.equal(result.state.facts.contactPurpose.value, 'Russell follow-up');
+  assert.match(result.text, /only for that follow-up request|does not share this conversation/i);
+  assert.doesNotMatch(result.text, /marketing|ready|urgent/i);
+});
+
+test('F-030 minimizes third-party sensitive information and redirects to decision facts', () => {
+  const result = move('My co-owner has serious health issues and a lot of debt.');
+  assert.equal(result.mode, MODES.DIRECTION);
+  assert.ok(result.state.sensitivities.includes('third-party-information'));
+  assert.match(result.text, /do not need more|authority|title|attorney|property|timing/i);
+  assert.doesNotMatch(result.text, /what health|how much debt|diagnos|medical history/i);
+  const summary = buildUnderstanding(result.state);
+  assert.match(summary, /co-owner.*timing or authority|timing or authority/i);
+  assert.doesNotMatch(summary, /serious health|a lot of debt/i);
+});
+
+test('general correction supersession governs all tracked decision facts', () => {
+  let state = updateWorkingState(emptyWorkingState(), 'We need more room, the commute is a problem, moving costs worry us, the roof concerns us, and we may sell this spring. Call me at 555-0100.', { timestamp: '2026-01-01T00:00:00.000Z' });
+  state = updateWorkingState(state, 'Actually, space is not the issue, the commute is fine, we are not worried about the cost, repairs are not a concern, next spring instead, and call 555-0101.', { correction: true, timestamp: '2026-01-02T00:00:00.000Z' });
+
+  assert.equal(state.facts.spaceNeed.value, false);
+  assert.equal(state.facts.commuteConcern.value, false);
+  assert.equal(state.facts.moveCostConcern.value, false);
+  assert.equal(state.facts.conditionConcern.value, false);
+  assert.equal(state.facts.timeline.value, 'next spring');
+  assert.equal(state.facts.contactValue.value, '555-0101');
+  assert.equal(state.topics.includes('space'), false);
+  assert.equal(state.topics.includes('commute'), false);
+  assert.equal(state.topics.includes('housing-cost'), false);
+  assert.equal(state.topics.includes('condition'), false);
+  assert.equal(state.tensions.includes('more suitable space versus the cost of moving'), false);
+
+  for (const field of ['spaceNeed', 'commuteConcern', 'moveCostConcern', 'conditionConcern', 'timeline', 'contactValue']) {
+    assert.ok(state.corrections.some((item) => item.field === field), `missing correction record for ${field}`);
+  }
+  const summary = buildUnderstanding(state);
+  assert.doesNotMatch(summary, /space needs|commute is one consideration|property condition.*central|current timing is this spring/i);
+  assert.match(summary, /next spring/i);
+});
+
+test('CF-01 core direct-answer behavior remains intact after final remediation', () => {
+  const result = move('Should we buy first or sell first?');
+  assert.equal(result.mode, MODES.ANSWER);
+  assert.match(result.text, /Buying first|Selling first|licensed lender/i);
+  assert.ok(questionCount(result.text) <= 1);
+  noPrivateLabels(result.text);
+  noGenericPseudoEmpathy(result.text);
+});
