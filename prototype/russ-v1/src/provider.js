@@ -23,7 +23,7 @@ export function emptyWorkingState() {
 function classify(text) {
   return {
     human: has(text, /\b(talk|speak|connect)\s+(to|with)\s+russell\b|\b(call|text)\s+russell\b|\bi just want (to )?(talk|speak)\b|\bcall me\b|\btext me\b/),
-    correction: has(text, /^(no[, ]|actually\b|correction\b|i meant\b)|\byou (already )?asked\b|\bi (already )?(said|told you)\b|\bnot (this|next) (spring|summer|fall|winter|year)\b|\binstead\b/),
+    correction: has(text, /^(no[, ]|actually\b|correction\b|i meant\b)|\byou (already )?asked\b|\bi (already )?(said|told you)\b|\bnot (this|next) (spring|summer|fall|winter|year)\b/),
     dontKnow: has(text, /\b(i don'?t know|not sure yet|no idea)\b/),
     skip: has(text, /\b(skip|rather not answer|don'?t want to answer)\b/),
     pause: has(text, /\b(pause|stop for now|come back later|need a break)\b/),
