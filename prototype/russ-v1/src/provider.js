@@ -292,7 +292,7 @@ export function selectNextMove({ text, previousState, messages = [], now = new D
     const providedContact = state.facts.contactValue?.status === 'current' ? { method: state.facts.contactMethod?.value || 'contact', replyTo: state.facts.contactValue.value } : null;
     const wantsContact = /call me|text me/.test(content.toLowerCase());
     const contactText = wantsContact && providedContact
-      ? `You asked Russell to contact you using the ${providedContact.method === 'email' ? 'email address' : 'number'} you provided. I can use it only for that follow-up request; it does not share this conversation or authorize other use. Conversation context remains a separate choice.`
+      ? `You can continue with Russell now. You asked him to contact you using the ${providedContact.method === 'email' ? 'email address' : 'number'} you provided. I can use it only for that follow-up request; it does not share this conversation or authorize other use. Conversation context remains a separate choice.`
       : 'You can continue with Russell now. Call or text without sharing this conversation, or ask Russell to contact you with only the contact information needed for that request.';
     return { mode: MODES.HUMAN, state, text: declined ? 'I will not transfer this conversation. You can call or text Russell directly and decide what you want to tell him.' : contactText, offerHuman: true, contactRequested: wantsContact, providedContact };
   }
@@ -303,7 +303,7 @@ export function selectNextMove({ text, previousState, messages = [], now = new D
   }
   if (signals.pause) return { mode: MODES.PAUSE, state, text: 'We can pause here. Your private conversation remains available when you return, and you can also continue directly with Russell at any time.', offerHuman: true };
   if (signals.stopQuestions || signals.frustration) return { mode: MODES.RECOVER, state, text: `You’re right. Another discovery question would not help now. ${directionForState(state)}`, offerHuman: true };
-  if (signals.skip || signals.changeTopic) return { mode: domain ? MODES.BOUNDARY : MODES.DIRECTION, state, text: `We can leave that question there. ${domain ? boundaryResponse(domain) : directionForState(state)}`, offerHuman: false };
+  if (signals.skip || signals.changeTopic || /rather not answer|can we talk about .+ instead/i.test(content)) return { mode: domain ? MODES.BOUNDARY : MODES.DIRECTION, state, text: `We can leave that question there. ${domain ? boundaryResponse(domain) : directionForState(state)}`, offerHuman: false };
   if (signals.sensitive && !signals.direct) return { mode: MODES.DIRECTION, state, text: `${acknowledgment} ${directionForState(state)}`.trim(), offerHuman: true, quickReplies: ['Pause here', 'One practical next step', 'Talk with Russell'] };
   if (signals.dontKnow) return { mode: MODES.DIRECTION, state, text: `It is fine not to know yet. ${directionForState(state)}`, quickReplies: ['Give me a simple comparison', 'Pause here', 'Talk with Russell'] };
   if (/\b(low|2\.75|2\.\d+)\b.+\b(rate|mortgage)\b|\b(rate|mortgage)\b.+\b(give it up|lose|low)\b/.test(content.toLowerCase()) && !signals.direct) return { mode: MODES.DIRECTION, state, text: `${acknowledgment} Comparing total housing cost, transition risk, and the reason for moving is more useful than treating the rate alone as the decision. A lender should verify any financing path from actual finances.`.trim() };
