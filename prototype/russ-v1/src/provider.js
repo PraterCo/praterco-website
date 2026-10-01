@@ -181,7 +181,7 @@ function specificAcknowledgement(state, text) {
   if (sensitivity === 'inheritance') return 'An inherited home can involve family agreement, legal authority, property condition, and carrying costs as separate decisions.';
   if (sensitivity === 'relationship-change') return 'Ownership, affordability, timing, and any agreement between you may need to be handled as separate questions.';
   if (sensitivity === 'financial-pressure') return 'The immediate deadline matters here, and the next step should reduce risk without adding pressure or collecting details we do not need.';
-  if (sensitivity === 'third-party-information') return 'A co-owner’s circumstances may affect timing or authority, but we do not need more health, debt, or other private detail about that person here.';
+  if (sensitivity === 'third-party-information') return 'A co-owner’s circumstances may affect timing or authority. We can keep the focus on the property and decision without collecting more private information about the other person.';
   const hasSpace = state.facts.spaceNeed?.value === true;
   const hasCommute = state.facts.commuteConcern?.value === true;
   const hasCost = state.facts.moveCostConcern?.value === true;
