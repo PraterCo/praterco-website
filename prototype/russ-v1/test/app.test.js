@@ -6,6 +6,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { createHandler } from '../src/app.js';
 import { Store } from '../src/store.js';
+import { BEHAVIOR_VERSION, emptyWorkingState } from '../src/provider.js';
 
 const accounts = [
   { email: 'seller@example.test', password: 'synthetic-seller-pass', role: 'participant' },
@@ -271,4 +272,56 @@ test('manual backup is integrity-checked and readable', async (t) => {
   const destination = await store.createBackup(new Date('2026-09-28T17:00:00.000Z'));
   assert.equal(fs.existsSync(destination), true);
   assert.ok(fs.statSync(destination).size > 0);
+});
+
+
+test('F-018 stale timeline is verified before use after resume', async (t) => {
+  const { base, store } = await fixture(t);
+  const seller = await login(base, 'seller@example.test', 'synthetic-seller-pass');
+  const conversation = await createConversation(base, seller);
+  const state = emptyWorkingState();
+  state.facts.timeline = { value: 'june', updatedAt: '2026-05-15T12:00:00.000Z', status: 'current' };
+  state.updatedAt = '2026-05-15T12:00:00.000Z';
+  store.saveWorkingState(conversation.id, BEHAVIOR_VERSION, state);
+
+  const response = await request(base, seller, `/api/conversations/${conversation.id}/messages`, 'POST', { content: "I'm back." });
+  assert.equal(response.status, 200);
+  const data = await response.json();
+  const latest = data.conversation.messages.at(-1).content;
+  assert.match(latest, /earlier timing may no longer be current|does that plan still fit/i);
+  assert.doesNotMatch(latest, /selling in june|since.*june/i);
+});
+
+test('F-029 uses a provided phone number without requiring it again or sharing context', async (t) => {
+  const { base } = await fixture(t);
+  const seller = await login(base, 'seller@example.test', 'synthetic-seller-pass');
+  const conversation = await createConversation(base, seller);
+
+  let response = await request(base, seller, `/api/conversations/${conversation.id}/messages`, 'POST', { content: '555-0100. Call me about selling.' });
+  assert.equal(response.status, 200);
+  let data = await response.json();
+  assert.equal(data.controls.openHuman, 'contact');
+  assert.equal(data.controls.contactReplyTo, '555-0100');
+  assert.equal(data.conversation.understanding, null);
+
+  response = await request(base, seller, `/api/conversations/${conversation.id}/handoff`, 'POST', {
+    channel: 'contact',
+    shareContext: false,
+    consent: false,
+    contact: { replyTo: data.controls.contactReplyTo }
+  });
+  assert.equal(response.status, 201);
+  data = await response.json();
+  assert.equal(data.continuation.contextShared, false);
+
+  const russell = await login(base, 'russell@example.test', 'synthetic-russell-pass');
+  response = await request(base, russell, '/api/russell/handoffs');
+  const list = await response.json();
+  response = await request(base, russell, `/api/russell/handoffs/${list.handoffs[0].id}`);
+  const detail = await response.json();
+  assert.equal(detail.handoff.contact.replyTo, '555-0100');
+  assert.equal(detail.handoff.contact.name, undefined);
+  assert.equal(detail.handoff.package.contextShared, false);
+  assert.deepEqual(detail.handoff.package.messages, []);
+  assert.equal(detail.handoff.package.summary, null);
 });

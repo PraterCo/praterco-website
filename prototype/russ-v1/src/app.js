@@ -104,6 +104,7 @@ function visitorControls(turn = {}) {
     quickReplies: turn.quickReplies || [],
     humanAvailable: true,
     openHuman: turn.mode === MODES.HUMAN ? (turn.contactRequested ? 'contact' : 'choices') : null,
+    contactReplyTo: turn.providedContact?.replyTo || null,
     focus: turn.understanding ? 'understanding' : turn.mode === MODES.HUMAN ? 'human' : 'composer'
   };
 }
@@ -253,8 +254,8 @@ export function createHandler({ config, store }) {
         if (body.channel === 'contact') {
           const name = String(body.contact?.name || '').trim();
           const replyTo = String(body.contact?.replyTo || '').trim();
-          if (!name || !replyTo || name.length > 120 || replyTo.length > 200) throw new HttpError(400, 'Name and a phone number or email are required for the contact request.', 'validation');
-          contact = { name, replyTo };
+          if (!replyTo || name.length > 120 || replyTo.length > 200) throw new HttpError(400, 'A phone number or email is required for the contact request.', 'validation');
+          contact = { ...(name ? { name } : {}), replyTo };
         }
         const summary = shareContext ? buildUnderstanding(conversation.workingState || emptyWorkingState()).replace(/ Is that.+$/, '') : null;
         const handoff = store.createHandoff(conversation, session.user.id, body.channel, HANDOFF_NOTICE, contact, summary, shareContext);

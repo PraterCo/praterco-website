@@ -223,6 +223,7 @@ function renderConversation(controls = {}, { resumed = false } = {}) {
     const latest = state.conversation.messages.at(-1);
     setText('#announcement', latest?.role === 'russ' ? `Russ said: ${latest.content}` : 'Conversation updated.');
   }
+  if (controls.contactReplyTo) $('#contactReply').value = controls.contactReplyTo;
   if (controls.openHuman) openHandoff(controls.openHuman === 'contact' ? 'contact' : null);
   else if (controls.focus === 'understanding' && understanding?.needsResponse) focusHeading('#understandingTitle');
   else if (!resumed && state.conversation.state !== 'shared') $('#messageInput').focus();
@@ -382,7 +383,7 @@ async function loadHandoff(id) {
     }
     if (data.handoff.contact) {
       const contactHeading = document.createElement('h3'); contactHeading.textContent = 'Requested contact';
-      const contact = document.createElement('p'); contact.textContent = `${data.handoff.contact.name}: ${data.handoff.contact.replyTo}`;
+      const contact = document.createElement('p'); contact.textContent = data.handoff.contact.name ? `${data.handoff.contact.name}: ${data.handoff.contact.replyTo}` : data.handoff.contact.replyTo;
       detail.append(contactHeading, contact);
     }
     heading.focus();
