@@ -125,7 +125,7 @@ test('F-030 minimizes third-party sensitive information and redirects to decisio
 });
 
 test('general correction supersession governs all tracked decision facts', () => {
-  let state = updateWorkingState(emptyWorkingState(), 'We need more room, the commute is a problem, moving costs worry us, the roof concerns us, and we may sell this spring. Call me at 555-0100.', { timestamp: '2026-01-01T00:00:00.000Z' });
+  let state = updateWorkingState(emptyWorkingState(), 'We need more room, the commute is a problem, the cost of moving worries us, the roof concerns us, and we may sell this spring. Call me at 555-0100.', { timestamp: '2026-01-01T00:00:00.000Z' });
   state = updateWorkingState(state, 'Actually, space is not the issue, the commute is fine, we are not worried about the cost, repairs are not a concern, next spring instead, and call 555-0101.', { correction: true, timestamp: '2026-01-02T00:00:00.000Z' });
 
   assert.equal(state.facts.spaceNeed.value, false);
