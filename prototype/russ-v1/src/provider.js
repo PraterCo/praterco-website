@@ -153,20 +153,37 @@ export function refreshWorkingState(previous, now = new Date().toISOString()) {
   return state;
 }
 
-function updateWorkingState(previous, text, { correction = false, timestamp = new Date().toISOString() } = {}) {
+export function updateWorkingState(previous, text, { correction = false, timestamp = new Date().toISOString() } = {}) {
   const state = structuredClone(previous || emptyWorkingState());
   const meaning = meaningFrom(text);
+
+  for (const [field, value] of Object.entries(meaning.facts)) applyFact(state, field, value, { correction, timestamp });
+
+  const negativeTopicFacts = [
+    ['spaceNeed', 'space'],
+    ['commuteConcern', 'commute'],
+    ['conditionConcern', 'condition'],
+    ['moveCostConcern', 'housing-cost']
+  ];
+  for (const [field, topic] of negativeTopicFacts) {
+    if (correction && meaning.facts[field] === false) state.topics = state.topics.filter((item) => item !== topic);
+  }
+
   state.topics = unique([...state.topics, ...meaning.topics]);
   state.priorities = unique([...state.priorities, ...meaning.priorities]);
   state.tensions = unique([...state.tensions, ...meaning.tensions]);
   state.uncertainties = unique([...state.uncertainties, ...meaning.uncertainties]);
   state.sensitivities = unique([...state.sensitivities, ...meaning.sensitivities]);
-  if (meaning.timeline) {
-    if (correction && state.facts.timeline?.value && state.facts.timeline.value !== meaning.timeline) {
-      state.corrections.push({ field: 'timeline', superseded: state.facts.timeline.value, current: meaning.timeline, correctedAt: timestamp });
+
+  if (correction) {
+    if (meaning.facts.spaceNeed === false || meaning.facts.moveCostConcern === false) {
+      state.tensions = state.tensions.filter((item) => item !== 'more suitable space versus the cost of moving');
     }
-    state.facts.timeline = { value: meaning.timeline, updatedAt: timestamp, status: 'current' };
+    if (meaning.facts.conditionConcern === false) {
+      state.tensions = state.tensions.filter((item) => item !== 'preparation cost versus likely buyer and market impact');
+    }
   }
+
   const signals = classify(text);
   if (signals.skip || signals.changeTopic) state.skippedTopics = unique([...state.skippedTopics, 'current-question']);
   if (signals.stopQuestions || signals.frustration) state.questionPreference = 'direction-only';
@@ -223,19 +240,24 @@ function directionForState(state) {
   return 'A useful next step is to separate what is already known from what would materially change the decision, then address the smallest consequential question first. You do not need a complete selling plan to begin.';
 }
 
-function buildUnderstanding(state) {
+export function buildUnderstanding(state) {
   const parts = [];
+  const multi = state.facts.spaceNeed?.value === true && state.facts.commuteConcern?.value === true && state.facts.moveCostConcern?.value === true;
   if (state.sensitivities.includes('bereavement')) parts.push('A recent personal change has made the housing decision especially significant');
   else if (state.sensitivities.includes('inheritance')) parts.push('An inherited property involves both the home and shared decision-making');
   else if (state.sensitivities.includes('relationship-change')) parts.push('Ownership, affordability, and timing may need to be resolved separately');
   else if (state.sensitivities.includes('financial-pressure')) parts.push('There may be a time-sensitive financial reason to understand the sale options');
-  else if (state.topics.includes('relocation')) parts.push('A move is creating a real planning deadline');
+  else if (state.sensitivities.includes('third-party-information')) parts.push('A co-owner’s circumstances may affect timing or authority without requiring more private detail about that person');
+  else if (multi) parts.push('You are weighing more space, the commute, and the cost of moving, without treating any one of them as the single reason');
+  else if (state.topics.includes('relocation')) parts.push('A move is creating a real planning constraint');
+  else if (state.topics.includes('commute')) parts.push('The commute is one consideration in the housing decision');
   else if (state.topics.includes('space')) parts.push('The home may no longer fit the household’s space needs');
   else if (state.topics.includes('condition')) parts.push('Property condition and preparation are central to the decision');
   else parts.push('You are considering whether selling is the right next step');
-  if (state.priorities.length) parts.push(`the priority is ${state.priorities.at(-1)}`);
-  if (state.tensions.length) parts.push(`the main tradeoff is ${state.tensions.at(-1)}`);
-  if (state.facts.timeline?.value) parts.push(`the current timing is ${state.facts.timeline.value}`);
+  if (state.priorities.length) parts.push(`the priority you stated is ${state.priorities.at(-1)}`);
+  if (!multi && state.tensions.length) parts.push(`one tradeoff is ${state.tensions.at(-1)}`);
+  if (state.facts.timeline?.status === 'current') parts.push(`the current timing is ${state.facts.timeline.value}`);
+  if (state.facts.timeline?.status === 'stale') parts.push('the earlier timing needs to be rechecked before it is used');
   if (state.uncertainties.length) parts.push('some parts of the decision are still open');
   return `${parts.join('. ')}. Is that a fair summary of what matters right now?`;
 }
