@@ -4,6 +4,7 @@ on:
   pull_request:
     branches:
       - fix/wo-002-behavior-creative-remediation
+      - fix/wo-002-final-behavior-remediation
   workflow_dispatch:
 
 permissions:
