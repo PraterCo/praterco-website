@@ -1,0 +1,25 @@
+name: WO-002 final remediation checks
+
+on:
+  pull_request:
+    branches:
+      - fix/wo-002-behavior-creative-remediation
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Syntax checks
+        working-directory: prototype/russ-v1
+        run: npm run check
+      - name: Automated tests
+        working-directory: prototype/russ-v1
+        run: npm test
