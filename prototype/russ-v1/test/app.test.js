@@ -325,3 +325,83 @@ test('F-029 uses a provided phone number without requiring it again or sharing c
   assert.deepEqual(detail.handoff.package.messages, []);
   assert.equal(detail.handoff.package.summary, null);
 });
+
+
+test('DR-002 human access can create contact request before retention consent', async (t) => {
+  const { base } = await fixture(t);
+  const seller = await login(base, 'seller@example.test', 'synthetic-seller-pass');
+
+  let response = await request(base, seller, '/api/contact-requests', 'POST', {
+    contact: { replyTo: 'seller@example.test' }
+  });
+  assert.equal(response.status, 201);
+  let data = await response.json();
+  assert.equal(data.continuation.contextShared, false);
+
+  response = await request(base, seller, '/api/conversations');
+  data = await response.json();
+  assert.deepEqual(data.conversations, []);
+
+  const russell = await login(base, 'russell@example.test', 'synthetic-russell-pass');
+  response = await request(base, russell, '/api/russell/handoffs');
+  const list = await response.json();
+  assert.equal(list.handoffs.length, 1);
+  response = await request(base, russell, `/api/russell/handoffs/${list.handoffs[0].id}`);
+  const detail = await response.json();
+  assert.equal(detail.handoff.package.contextShared, false);
+  assert.equal(detail.handoff.contact.replyTo, 'seller@example.test');
+});
+
+test('DR-002 contact-only request preserves active Russ conversation', async (t) => {
+  const { base } = await fixture(t);
+  const seller = await login(base, 'seller@example.test', 'synthetic-seller-pass');
+  const conversation = await createConversation(base, seller);
+
+  let response = await request(base, seller, `/api/conversations/${conversation.id}/handoff`, 'POST', {
+    channel: 'contact',
+    shareContext: false,
+    consent: false,
+    contact: { replyTo: 'seller@example.test' }
+  });
+  assert.equal(response.status, 201);
+  let data = await response.json();
+  assert.equal(data.continuation.contextShared, false);
+  assert.equal(data.continuation.conversationState, 'active');
+
+  response = await request(base, seller, `/api/conversations/${conversation.id}`);
+  data = await response.json();
+  assert.equal(data.conversation.state, 'active');
+
+  response = await request(base, seller, `/api/conversations/${conversation.id}/messages`, 'POST', { content: 'I want to keep talking about timing.' });
+  assert.equal(response.status, 200);
+
+  response = await request(base, seller, `/api/conversations/${conversation.id}/handoff`, 'POST', {
+    channel: 'call',
+    shareContext: true,
+    consent: true,
+    noticeVersion: 'handoff-context-v2'
+  });
+  assert.equal(response.status, 201);
+  data = await response.json();
+  assert.equal(data.continuation.contextShared, true);
+  assert.equal(data.continuation.conversationState, 'shared');
+});
+
+test('Russell-side service failure preserves authenticated session and exposes retryable service error', async (t) => {
+  const { base, store } = await fixture(t);
+  const russell = await login(base, 'russell@example.test', 'synthetic-russell-pass');
+  const original = store.listContinuations.bind(store);
+  store.listContinuations = () => { throw new Error('synthetic continuation failure'); };
+
+  let response = await request(base, russell, '/api/russell/handoffs');
+  assert.equal(response.status, 500);
+  let data = await response.json();
+  assert.equal(data.error.kind, 'service');
+  assert.equal(data.error.retryable, true);
+
+  store.listContinuations = original;
+  response = await request(base, russell, '/api/session');
+  assert.equal(response.status, 200);
+  data = await response.json();
+  assert.equal(data.user.email, 'russell@example.test');
+});
