@@ -1,1 +1,2 @@
 Final exact-SHA delivery verification trigger. Do not merge.
+Second trigger after workflow registration.
