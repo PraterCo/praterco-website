@@ -29,7 +29,7 @@ export function emptyWorkingState() {
 function classify(text) {
   const lower = normalizeForIntent(text);
   return {
-    human: /\b(talk|speak|connect)\s+(to|with)\s+russell\b|\b(call|text)\s+russell\b|\bi just want (to )?(talk|speak)\b|\bcall me\b|\btext me\b|\b(i want|i'd like|id like|please|can you|could you|would you)\s+russell\s+(to\s+)?(contact|call|text|reach out|get in touch)\s*(with\s+me|me)?\b|\b(have|ask)\s+russell\s+(to\s+)?(contact|call|text|reach out|get in touch)\s*(with\s+me|me)?\b|\brussell\s+can\s+(contact|call|text|reach out|get in touch)\s*(with\s+me|me)?\b/.test(lower),
+    human: /\b(talk|speak|connect)\s+(to|with)\s+russell\b|\b(call|text)\s+russell\b|\bi just want (to )?(talk|speak)\b|\bcall me\b|\btext me\b|\b(i want|i'd like|id like|please|can you|could you|would you)\s+russell\s+(to\s+)?(contact|call|text|reach out|get in touch)\s*(with\s+me|me)?\b|\b(have|ask)\s+russell\s+(to\s+)?(contact|call|text|reach out|get in touch)\s*(with\s+me|me)?\b|\bcan\s+russell\s+(contact|call|text|reach out|get in touch)\s*(with\s+me|me)?\b|\brussell\s+can\s+(contact|call|text|reach out|get in touch)\s*(with\s+me|me)?\b/.test(lower),
     correction: /^(no[, ]|actually\b|correction\b|i meant\b)|\byou (already )?asked\b|\bi (already )?(said|told you)\b|\bnot (this|next) (spring|summer|fall|winter|year)\b/.test(lower),
     dontKnow: /\b(i don'?t know|i'?m not sure|i can'?t decide|not sure yet|no idea)\b/.test(lower),
     skip: /\b(skip|rather not answer|don'?t want to answer)\b/.test(lower),
@@ -47,8 +47,8 @@ function detectDomain(text) {
   const lower = normalizeForIntent(text);
   if (/capital[- ]?gains?|\btax(es)?\b|taxable|basis|exclusion/.test(lower)) return 'tax';
   if (/\bdeed\b|\btitle\b|probate|legal|court order|ex.+deed|authority to sell/.test(lower)) return 'legal';
-  if (/\b(buy|buying|purchase)\b.*\b(before|first)\b.*\b(sell|selling)\b|\b(sell|selling)\b.*\b(before|first)\b.*\b(buy|buying|purchase)\b|\b(buy|buying)\s+first\b|\b(sell|selling)\s+first\b|\bwhich should happen first\b.*\b(buy|buying)\b.*\b(sell|selling)\b|\banother (house|home) before selling (this|our|my) (one|house|home)\b|\bbefore (this|our|my) (one|house|home) sells\b|two payments|bridge loan/.test(lower)) return 'buy-before-sell';
   if (/qualif|mortgage|\bloan\b|lender|interest rate|payment|financ(e|ing)/.test(lower)) return 'lending';
+  if (/\b(buy|buying|purchase)\b.*\b(before|first)\b.*\b(sell|selling)\b|\b(sell|selling)\b.*\b(before|first)\b.*\b(buy|buying|purchase)\b|\b(buy|buying)\s+first\b|\b(sell|selling)(?:\s+(?:my|our|the)\s+(?:house|home|property))?\s+first\b|\bwhich should happen first\b.*\b(buy|buying)\b.*\b(sell|selling)\b|\banother (house|home) before selling (this|our|my) (one|house|home)\b|\bbefore (this|our|my) (one|house|home) sells\b|two payments|bridge loan/.test(lower)) return 'buy-before-sell';
   if (/what.+worth|home value|house value|\bapprais|listing price|price estimate|how much.+(home|house)/.test(lower)) return 'value';
   if (/foundation|structural|engineer|\bcrack\b|roof|contractor|construction|repair|renovat|remodel/.test(lower)) return 'construction';
   if (/\brent(al|ing)?\b|investment|landlord|cash flow|cap rate|tenant/.test(lower)) return 'investment';
@@ -326,7 +326,7 @@ export function selectNextMove({ text, previousState, messages = [], now = new D
   if (signals.human) {
     const declined = /don'?t (send|share)|do not (send|share)|without sharing|don'?t share this conversation|do not share this conversation/.test(intentText);
     const providedContact = state.facts.contactValue?.status === 'current' ? { method: state.facts.contactMethod?.value || 'contact', replyTo: state.facts.contactValue.value } : null;
-    const wantsContact = /call me|text me|russell\s+(to\s+)?(contact|call|text|reach out|get in touch)\s*(with\s+me|me)?|(?:have|ask)\s+russell\s+(to\s+)?(contact|call|text|reach out|get in touch)\s*(with\s+me|me)?|russell\s+can\s+(contact|call|text|reach out|get in touch)\s*(with\s+me|me)?/.test(intentText);
+    const wantsContact = /call me|text me|russell\s+(to\s+)?(contact|call|text|reach out|get in touch)\s*(with\s+me|me)?|(?:have|ask)\s+russell\s+(to\s+)?(contact|call|text|reach out|get in touch)\s*(with\s+me|me)?|can\s+russell\s+(contact|call|text|reach out|get in touch)\s*(with\s+me|me)?|russell\s+can\s+(contact|call|text|reach out|get in touch)\s*(with\s+me|me)?/.test(intentText);
     const contactText = wantsContact && providedContact
       ? `You can continue with Russell now. You asked him to contact you using the ${providedContact.method === 'email' ? 'email address' : 'number'} you provided. I can use it only for that follow-up request; it does not share this conversation or authorize other use. Conversation context remains a separate choice.`
       : 'You can continue with Russell now. Call or text without sharing this conversation, or ask Russell to contact you with only the contact information needed for that request.';
