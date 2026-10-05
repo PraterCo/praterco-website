@@ -54,6 +54,11 @@ export class Store {
         consent_notice_version TEXT NOT NULL, consented_at TEXT NOT NULL, package TEXT NOT NULL,
         contact TEXT, status TEXT NOT NULL, created_at TEXT NOT NULL
       );
+      CREATE TABLE IF NOT EXISTS contact_requests (
+        id TEXT PRIMARY KEY, conversation_id TEXT REFERENCES conversations(id) ON DELETE SET NULL,
+        participant_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        contact TEXT NOT NULL, status TEXT NOT NULL, created_at TEXT NOT NULL
+      );
       CREATE TABLE IF NOT EXISTS audit_events (
         id TEXT PRIMARY KEY, actor_id TEXT, action TEXT NOT NULL, subject_type TEXT NOT NULL,
         subject_id TEXT, outcome TEXT NOT NULL, created_at TEXT NOT NULL
@@ -66,6 +71,7 @@ export class Store {
       CREATE INDEX IF NOT EXISTS conversations_owner_idx ON conversations(owner_id, updated_at);
       CREATE INDEX IF NOT EXISTS conversations_expiry_idx ON conversations(expires_at);
       CREATE INDEX IF NOT EXISTS handoffs_status_idx ON handoffs(status, created_at);
+      CREATE INDEX IF NOT EXISTS contact_requests_status_idx ON contact_requests(status, created_at);
     `);
   }
 
@@ -187,6 +193,42 @@ export class Store {
     return state;
   }
 
+  createContactRequest(participantId, contact, conversationId = null) {
+    const id = randomUUID();
+    const createdAt = now();
+    this.db.prepare('INSERT INTO contact_requests VALUES (?,?,?,?,?,?)').run(
+      id, conversationId, participantId,
+      encryptJson(contact, this.config.encryptionKey, `${id}:contact-request`),
+      'ready', createdAt
+    );
+    this.audit(participantId, 'contact.requested', 'contact_request', id, 'success');
+    return { id, status: 'ready', channel: 'contact', createdAt, contextShared: false };
+  }
+
+  listContinuations() {
+    const handoffs = this.db.prepare("SELECT id,channel,status,consented_at AS received_at,'handoff' AS type FROM handoffs").all()
+      .map((row) => ({ ...row, receivedAt: row.received_at }));
+    const contacts = this.db.prepare("SELECT id,'contact' AS channel,status,created_at AS received_at,'contact' AS type FROM contact_requests").all()
+      .map((row) => ({ ...row, receivedAt: row.received_at }));
+    return [...handoffs, ...contacts].sort((a, b) => String(b.receivedAt).localeCompare(String(a.receivedAt)));
+  }
+
+  getContinuation(id, actorId) {
+    const handoff = this.db.prepare('SELECT id FROM handoffs WHERE id=?').get(id);
+    if (handoff) return this.getHandoff(id, actorId);
+    const row = this.db.prepare('SELECT * FROM contact_requests WHERE id=?').get(id);
+    if (!row) return null;
+    this.audit(actorId, 'contact.read', 'contact_request', id, 'success');
+    return {
+      id: row.id,
+      channel: 'contact',
+      status: row.status,
+      consentedAt: row.created_at,
+      package: { contextShared: false, messages: [], understanding: null, summary: null, consent: null },
+      contact: decryptJson(row.contact, this.config.encryptionKey, `${id}:contact-request`)
+    };
+  }
+
   createHandoff(conversation, participantId, channel, noticeVersion, contact, summary, shareContext) {
     const id = randomUUID();
     const consentedAt = now();
@@ -212,7 +254,7 @@ export class Store {
       contact ? encryptJson(contact, this.config.encryptionKey, `${id}:contact`) : null,
       'ready', consentedAt
     );
-    this.db.prepare('UPDATE conversations SET status=? WHERE id=?').run('handoff-ready', conversation.id);
+    if (shareContext) this.db.prepare('UPDATE conversations SET status=? WHERE id=?').run('handoff-ready', conversation.id);
     this.audit(participantId, shareContext ? 'handoff.consented' : 'contact.requested', 'handoff', id, 'success');
     return { id, status: 'ready', channel, consentedAt, contextShared: shareContext };
   }

@@ -1,4 +1,4 @@
-export const BEHAVIOR_VERSION = 'seller-reference-2.1.0';
+export const BEHAVIOR_VERSION = 'seller-reference-2.2.0';
 export const FIXTURE_VERSION = 'private-seller-1.0.0';
 
 export const MODES = Object.freeze({
@@ -82,6 +82,9 @@ function meaningFrom(text) {
 
   if (/space is not (the )?(issue|problem)|don'?t need more (room|space)|do not need more (room|space)/.test(lower)) facts.spaceNeed = false;
   else if (/third child|baby|bedroom|more room|more space|out of (room|bedrooms)/.test(lower)) facts.spaceNeed = true;
+  if (/the (home|house) no longer fits|doesn'?t fit (us|our needs) anymore|does not fit (us|our needs) anymore/.test(lower)) topics.push('home-fit');
+  if (/a move may be coming|may (have )?a move coming|may be moving|might be moving/.test(lower)) topics.push('move-planning');
+  if (/i am just exploring|i'?m just exploring|just exploring/.test(lower)) topics.push('exploration');
 
   if (/commute is (fine|not an issue|not the issue)|commute isn'?t (an issue|the issue|a problem)/.test(lower)) facts.commuteConcern = false;
   else if (/\bcommute\b/.test(lower)) facts.commuteConcern = true;
@@ -110,6 +113,10 @@ function meaningFrom(text) {
   if (/behind on payments|foreclos|bankrupt|financial pressure|sell fast/.test(lower)) sensitivities.push('financial-pressure');
   if (/(co-owner|coowner).*(health|medical|debt|financial)/.test(lower)) sensitivities.push('third-party-information');
   if (/calm|less stress|simple process/.test(lower)) priorities.push('a calm, manageable process');
+  if (/financial tradeoffs?|financial side|money side/.test(lower)) priorities.push('financial tradeoffs');
+  if (/whether to move at all|whether (we|i) should move|decide whether to move/.test(lower)) priorities.push('whether to move at all');
+  if (/^timing\.?$|timing matters most|focus on timing/.test(lower)) priorities.push('timing');
+  if (/^property condition\.?$|focus on (the )?property condition/.test(lower)) priorities.push('property condition');
   if (/strongest result|best price|maximi/.test(lower)) priorities.push('a strong financial result');
   if (/timing|deadline|six weeks|quick|fast|soon/.test(lower)) priorities.push('control of timing');
   if (/as[- ]is|avoid repair|no repair/.test(lower)) priorities.push('limiting preparation work');
@@ -251,6 +258,9 @@ export function buildUnderstanding(state) {
   else if (multi) parts.push('You are weighing more space, the commute, and the cost of moving, without treating any one of them as the single reason');
   else if (state.topics.includes('relocation')) parts.push('A move is creating a real planning constraint');
   else if (state.topics.includes('commute')) parts.push('The commute is one consideration in the housing decision');
+  else if (state.topics.includes('home-fit')) parts.push('The home is no longer fitting what you need from it');
+  else if (state.topics.includes('move-planning')) parts.push('A possible move is part of the decision');
+  else if (state.topics.includes('exploration')) parts.push('You are exploring the selling decision without committing to it');
   else if (state.topics.includes('space')) parts.push('The home may no longer fit the household’s space needs');
   else if (state.topics.includes('condition')) parts.push('Property condition and preparation are central to the decision');
   else parts.push('You are considering whether selling is the right next step');
@@ -268,11 +278,18 @@ function shouldConfirm(state) {
 }
 
 function questionForState(state) {
-  if (state.facts.timeline?.status === 'stale' && state.questionPreference === 'open') return { text: 'The earlier timing may be out of date. Does that plan still apply, or has the timing changed?', topic: 'timeline-refresh', replies: ['It still applies', 'The timing changed', 'Timing is open'] };
-  if (!state.topics.length && !state.sensitivities.length) return { text: 'What put selling on your mind?', topic: 'reason', replies: ['I am just exploring', 'A move may be coming', 'The home no longer fits'] };
-  if (!state.facts.timeline && state.questionPreference === 'open') return { text: 'Is there a timing constraint that would materially change your options, or is the timing still open?', topic: 'timeline', replies: ['Timing is open', 'Within 3 months', 'Later this year', 'Next year'] };
-  if (!state.priorities.length && state.questionPreference === 'open') return { text: 'Which part of the decision would be most useful to make clearer first?', topic: 'priority', replies: ['Timing', 'Property condition', 'Financial tradeoffs', 'Whether to move at all'] };
+  if (state.facts.timeline?.status === 'stale' && state.questionPreference === 'open' && !state.askedTopics.includes('timeline-refresh')) return { text: 'The earlier timing may be out of date. Does that plan still apply, or has the timing changed?', topic: 'timeline-refresh', replies: ['It still applies', 'The timing changed', 'Timing is open'] };
+  if (!state.askedTopics.includes('reason') && !state.topics.length && !state.sensitivities.length) return { text: 'What put selling on your mind?', topic: 'reason', replies: ['I am just exploring', 'A move may be coming', 'The home no longer fits'] };
+  if (!state.askedTopics.includes('timeline') && !state.facts.timeline && state.questionPreference === 'open') return { text: 'Is there a timing constraint that would materially change your options, or is the timing still open?', topic: 'timeline', replies: ['Timing is open', 'Within 3 months', 'Later this year', 'Next year'] };
+  if (!state.askedTopics.includes('priority') && !state.priorities.length && state.questionPreference === 'open') return { text: 'Which part of the decision would be most useful to make clearer first?', topic: 'priority', replies: ['Timing', 'Property condition', 'Financial tradeoffs', 'Whether to move at all'] };
   return null;
+}
+
+function generalSellDecisionDirection(state) {
+  const known = directionForState(state);
+  const hasSpecificContext = state.topics.length || state.priorities.length || state.tensions.length || state.sensitivities.length || state.facts.timeline;
+  if (hasSpecificContext) return `Whether selling is the right move depends on whether it improves the situation enough to justify the financial and practical tradeoffs. Based on what you have shared, ${known.charAt(0).toLowerCase() + known.slice(1)}`;
+  return 'Whether you should sell depends on what selling would solve compared with staying. A useful comparison is the reason for considering a move, timing, the cost and practicality of the next housing step, and the property’s current situation. I would not tell you to sell from this alone, but you can use those tradeoffs to identify what evidence would actually change the decision.';
 }
 
 export function selectNextMove({ text, previousState, messages = [], now = new Date().toISOString() }) {
@@ -287,6 +304,7 @@ export function selectNextMove({ text, previousState, messages = [], now = new D
   if (signals.returning && hadStaleTimeline && state.facts.timeline?.status === 'stale') return { mode: MODES.CLARIFY, state, text: 'Welcome back. The earlier timing may no longer be current, so I will not assume it still applies. Does that plan still fit, or would you rather correct it, change the topic, or start over?', quickReplies: ['It still applies', 'Correct the timing', 'Change topic', 'Start over'] };
   if (/only gets? the summary|what (will|do) (be )?shared|what do you share/.test(content.toLowerCase())) return { mode: MODES.ANSWER, state, text: 'Russell would receive the ordered conversation, including corrections and any confirmed understanding. A generated summary may be included only as a supplement, not a replacement. Nothing is transferred unless you separately agree, and you can call or text without sharing the conversation.', offerHuman: true };
   if (/how ready|readiness|what are you still missing|score me|profile me/.test(content.toLowerCase())) return { mode: MODES.ANSWER, state, text: 'I do not score your readiness or show a hidden profile or missing-information list. I can offer a plain recap of the decision considerations you have chosen to share and let you correct it, or help with the next useful question you choose.' };
+  if (signals.direct && /\bshould (i|we) (sell|list)( (the|our|my) (home|house|property))?\b/i.test(content)) return { mode: MODES.ANSWER, state, text: generalSellDecisionDirection(state), offerHuman: false };
   if (signals.human) {
     const declined = /don'?t (send|share)|do not (send|share)|without sharing/.test(content.toLowerCase());
     const providedContact = state.facts.contactValue?.status === 'current' ? { method: state.facts.contactMethod?.value || 'contact', replyTo: state.facts.contactValue.value } : null;
@@ -319,7 +337,7 @@ export function selectNextMove({ text, previousState, messages = [], now = new D
 }
 
 export function initialTurn() {
-  return { mode: MODES.ASK, text: 'What put selling on your mind?', quickReplies: ['I am just exploring', 'A move may be coming', 'The home no longer fits'] };
+  return { mode: MODES.ASK, topic: 'reason', text: 'What put selling on your mind?', quickReplies: ['I am just exploring', 'A move may be coming', 'The home no longer fits'] };
 }
 
 export function directionAfterConfirmation(state) {

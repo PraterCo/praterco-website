@@ -4,6 +4,7 @@ import fs from 'node:fs';
 
 const html = fs.readFileSync(new URL('../public/index.html', import.meta.url), 'utf8');
 const css = fs.readFileSync(new URL('../public/styles.css', import.meta.url), 'utf8');
+const app = fs.readFileSync(new URL('../public/app.js', import.meta.url), 'utf8');
 
 test('interactive controls have labels and live status regions', () => {
   for (const id of ['email', 'password', 'messageInput', 'correctionInput', 'contactName', 'contactReply']) {
@@ -38,4 +39,28 @@ test('layout includes narrow viewport, visible focus, and reduced motion rules',
   assert.match(css, /prefers-reduced-motion:\s*reduce/);
   assert.match(css, /quick-replies button\s*\{[^}]*min-height:\s*44px/s);
   assert.doesNotMatch(css, /font-size:\s*\d+(\.\d+)?vw/);
+});
+
+
+test('DR-002 human controls are enabled for participant before a conversation starts', () => {
+  assert.match(app, /\$\('#humanActions'\)\.hidden = false/);
+  assert.match(app, /if \(state\.conversation\) openHandoff\('contact'\)/);
+  assert.match(app, /api\/contact-requests/);
+});
+
+test('Russell-side recovery has its own visible focusable surface and retry action', () => {
+  assert.match(html, /id="russellRecoveryPanel"/);
+  assert.match(html, /id="russellRecoveryTitle"[^>]*tabindex="-1"/);
+  assert.match(html, /id="russellRetryButton"/);
+  assert.match(app, /showRecovery\(error, loadHandoffs, 'russell'\)/);
+  assert.match(app, /focusHeading\('#russellRecoveryTitle'\)/);
+});
+
+test('successful handoff intentionally moves focus to the resulting status', () => {
+  assert.match(html, /id="handoffStatus"[^>]*tabindex="-1"/);
+  assert.match(app, /\$\('#handoffStatus'\)\.focus\(\)/);
+});
+
+test('quick reply selection submits the answer instead of only filling the composer', () => {
+  assert.match(app, /button\.addEventListener\('click', \(\) => submitMessage\(reply\)\)/);
 });

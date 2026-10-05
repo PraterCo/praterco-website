@@ -156,3 +156,49 @@ test('CF-01 core direct-answer behavior remains intact after final remediation',
   noPrivateLabels(result.text);
   noGenericPseudoEmpathy(result.text);
 });
+
+
+test('quick reply answers the current question and advances without repeating it', () => {
+  const prior = emptyWorkingState();
+  prior.askedTopics.push('reason');
+  const result = selectNextMove({ text: 'A move may be coming', previousState: prior, now: '2026-09-28T12:00:00.000Z' });
+  assert.ok(result.state.topics.includes('move-planning'));
+  assert.doesNotMatch(result.text, /what put selling on your mind/i);
+  assert.ok([MODES.ASK, MODES.DIRECTION, MODES.CONFIRM].includes(result.mode));
+});
+
+test('quick reply and equivalent typed response produce equivalent understanding', () => {
+  const quickState = emptyWorkingState();
+  quickState.askedTopics.push('reason');
+  const typedState = emptyWorkingState();
+  typedState.askedTopics.push('reason');
+
+  const quick = selectNextMove({ text: 'The home no longer fits', previousState: quickState, now: '2026-09-28T12:00:00.000Z' });
+  const typed = selectNextMove({ text: 'The house does not fit our needs anymore', previousState: typedState, now: '2026-09-28T12:00:00.000Z' });
+
+  assert.ok(quick.state.topics.includes('home-fit'));
+  assert.ok(typed.state.topics.includes('home-fit'));
+  assert.equal(buildUnderstanding(quick.state), buildUnderstanding(typed.state));
+  assert.doesNotMatch(quick.text, /what put selling on your mind/i);
+  assert.doesNotMatch(typed.text, /what put selling on your mind/i);
+});
+
+test('quick reply to timeline question is treated as an answer', () => {
+  const prior = emptyWorkingState();
+  prior.topics.push('move-planning');
+  prior.askedTopics.push('reason', 'timeline');
+  const result = selectNextMove({ text: 'Timing is open', previousState: prior, now: '2026-09-28T12:00:00.000Z' });
+  assert.equal(result.state.facts.timeline.value, 'no fixed timing');
+  assert.doesNotMatch(result.text, /is there a timing constraint/i);
+});
+
+test('general direct sell question receives bounded useful direction before discovery', () => {
+  const result = move('Should I sell?');
+  assert.equal(result.mode, MODES.ANSWER);
+  assert.match(result.text, /whether you should sell|selling is the right move/i);
+  assert.match(result.text, /tradeoff|staying|timing|cost|property/i);
+  assert.ok(questionCount(result.text) <= 1);
+  assert.doesNotMatch(result.text, /what put selling on your mind/i);
+  noPrivateLabels(result.text);
+  noGenericPseudoEmpathy(result.text);
+});

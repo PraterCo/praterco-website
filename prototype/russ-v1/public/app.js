@@ -1,5 +1,6 @@
+import { draftAfterRequest } from './ui-state.js';
 const $ = (selector) => document.querySelector(selector);
-const state = { session: null, conversation: null, pendingResume: null, lastAction: null };
+const state = { session: null, conversation: null, pendingResume: null, lastAction: null, russellLastAction: null };
 
 class ApiError extends Error {
   constructor(status, detail) {
@@ -45,7 +46,8 @@ function focusHeading(selector) {
 }
 
 function hideRecovery() { $('#recoveryPanel').hidden = true; }
-function showRecovery(error, retry = null) {
+function hideRussellRecovery() { $('#russellRecoveryPanel').hidden = true; }
+function showRecovery(error, retry = null, surface = null) {
   if (error.kind === 'authentication') {
     state.session = null;
     state.conversation = null;
@@ -53,6 +55,15 @@ function showRecovery(error, retry = null) {
     showOnly($('#loginView'));
     setText('#loginStatus', error.message);
     $('#email').focus();
+    return;
+  }
+  const russellSurface = surface === 'russell' || !$('#russellView').hidden;
+  if (russellSurface) {
+    state.russellLastAction = retry;
+    setText('#russellRecoveryMessage', error.message || 'That request could not be loaded. Your signed-in review session is still active.');
+    $('#russellRetryButton').hidden = !retry;
+    $('#russellRecoveryPanel').hidden = false;
+    focusHeading('#russellRecoveryTitle');
     return;
   }
   state.lastAction = retry;
@@ -79,12 +90,13 @@ async function initialize() {
     showOnly($('#participantView'));
     $('#callRussellLink').href = `tel:${state.session.russellPhone}`;
     $('#textRussellLink').href = `sms:${state.session.russellPhone}`;
+    $('#humanActions').hidden = false;
     try { await loadConversationList(); }
     catch (error) { showRecovery(error, loadConversationList); }
   } else if (['russell', 'administrator'].includes(state.session.user.role)) {
     showOnly($('#russellView'));
     try { await loadHandoffs(); }
-    catch (error) { showRecovery(error, loadHandoffs); }
+    catch (error) { showRecovery(error, loadHandoffs, 'russell'); }
   } else showOnly($('#reviewerView'));
 }
 
@@ -119,6 +131,16 @@ $('#recoveryBackButton').addEventListener('click', () => {
   if (state.conversation) { $('#conversationView').hidden = false; $('#messageInput').focus(); }
   else { $('#emptyState').hidden = false; $('#developmentConsent').focus(); }
 });
+$('#russellRetryButton').addEventListener('click', async () => {
+  hideRussellRecovery();
+  if (!state.russellLastAction) return;
+  try { await state.russellLastAction(); }
+  catch (error) { showRecovery(error, state.russellLastAction, 'russell'); }
+});
+$('#russellRecoveryBackButton').addEventListener('click', () => {
+  hideRussellRecovery();
+  $('#handoffList button')?.focus();
+});
 
 async function loadConversationList() {
   const data = await api('/api/conversations');
@@ -139,7 +161,7 @@ function showStart() {
   $('#conversationView').hidden = true;
   $('#resumePanel').hidden = true;
   $('#emptyState').hidden = false;
-  $('#humanActions').hidden = true;
+  $('#humanActions').hidden = false;
   $('#shareContextButton').hidden = true;
   $('#developmentConsent').checked = false;
   $('#developmentConsent').focus();
@@ -236,7 +258,7 @@ function renderQuickReplies(replies) {
     const button = document.createElement('button');
     button.type = 'button';
     button.textContent = reply;
-    button.addEventListener('click', () => { $('#messageInput').value = reply; $('#messageInput').focus(); });
+    button.addEventListener('click', () => submitMessage(reply));
     container.append(button);
   }
 }
@@ -245,28 +267,34 @@ for (const button of document.querySelectorAll('[data-control-message]')) {
   button.addEventListener('click', () => { $('#messageInput').value = button.dataset.controlMessage; $('#messageInput').focus(); });
 }
 
-$('#composer').addEventListener('submit', async (event) => {
-  event.preventDefault();
-  const content = $('#messageInput').value.trim();
-  if (!content) { setText('#messageError', 'Write a message before sending.'); $('#messageInput').focus(); return; }
-  const draft = $('#messageInput').value;
+async function submitMessage(explicitContent = null) {
+  const input = $('#messageInput');
+  const originalValue = explicitContent ?? input.value;
+  const content = originalValue.trim();
+  if (!content) { setText('#messageError', 'Write a message before sending.'); input.focus(); return; }
+  const draftAtSubmission = input.value;
+  if (explicitContent !== null) input.value = '';
   setText('#messageError', '');
   const action = async () => {
     setBusy(true, 'Russ is considering what you shared…');
     try {
       const data = await api(`/api/conversations/${state.conversation.id}/messages`, { method: 'POST', body: JSON.stringify({ content }) });
       state.conversation = data.conversation;
-      $('#messageInput').value = '';
+      input.value = draftAfterRequest({ submittedDraft: draftAtSubmission, currentDraft: input.value, explicitContent, succeeded: true });
       renderConversation(data.controls);
     } finally { setBusy(false); }
   };
   try { await action(); }
   catch (error) {
-    $('#messageInput').value = draft;
+    input.value = draftAfterRequest({ submittedDraft: draftAtSubmission, currentDraft: input.value, explicitContent, succeeded: false });
     setBusy(false);
     setText('#messageError', `${error.message} Your draft is still here.`);
     showRecovery(error, action);
   }
+}
+$('#composer').addEventListener('submit', async (event) => {
+  event.preventDefault();
+  await submitMessage();
 });
 
 $('#confirmButton').addEventListener('click', () => updateUnderstanding({ action: 'confirm' }));
@@ -297,7 +325,35 @@ function openHandoff(channel = null) {
   updateContactFields();
   focusHeading('#handoffHeading');
 }
-$('#contactRussellButton').addEventListener('click', () => openHandoff('contact'));
+$('#contactRussellButton').addEventListener('click', () => {
+  if (state.conversation) openHandoff('contact');
+  else {
+    $('#preContactPanel').hidden = false;
+    setText('#preContactError', '');
+    setText('#preContactStatus', '');
+    focusHeading('#preContactTitle');
+  }
+});
+$('#preContactClose').addEventListener('click', () => {
+  $('#preContactPanel').hidden = true;
+  $('#contactRussellButton').focus();
+});
+$('#preContactSubmit').addEventListener('click', async () => {
+  const contact = { name: $('#preContactName').value, replyTo: $('#preContactReply').value };
+  const action = async () => {
+    setText('#preContactError', '');
+    setText('#preContactStatus', 'Sending your contact request…');
+    const data = await api('/api/contact-requests', { method: 'POST', body: JSON.stringify({ contact }) });
+    setText('#preContactStatus', data.continuation.contextShared ? 'Your request was sent with context.' : 'Your contact request is available to Russell. No Russ conversation was started or shared.');
+    $('#preContactStatus').focus();
+  };
+  try { await action(); }
+  catch (error) {
+    setText('#preContactStatus', '');
+    setText('#preContactError', error.message);
+    showRecovery(error, action);
+  }
+});
 $('#shareContextButton').addEventListener('click', () => openHandoff());
 $('#closeHandoffButton').addEventListener('click', () => { $('#handoffPanel').hidden = true; $('#messageInput').focus(); });
 for (const radio of document.querySelectorAll('input[name="handoffChannel"]')) radio.addEventListener('change', updateContactFields);
@@ -321,9 +377,10 @@ $('#continueButton').addEventListener('click', async () => {
     const data = await api(`/api/conversations/${state.conversation.id}/handoff`, {
       method: 'POST', body: JSON.stringify({ channel, shareContext, consent: shareContext, noticeVersion: state.session.handoffNoticeVersion, contact })
     });
-    state.conversation.state = 'shared';
-    setText('#handoffStatus', data.continuation.contextShared ? 'Your continuation request and conversation context are available to Russell.' : 'Your contact request is available to Russell. The conversation was not shared.');
-    $('#continueButton').disabled = true;
+    state.conversation.state = data.continuation.conversationState || (data.continuation.contextShared ? 'shared' : 'active');
+    setText('#handoffStatus', data.continuation.contextShared ? 'Your continuation request and conversation context are available to Russell.' : 'Your contact request is available to Russell. The conversation was not shared, and you can keep talking with Russ.');
+    if (data.continuation.contextShared) $('#continueButton').disabled = true;
+    $('#handoffStatus').focus();
     if (channel === 'call' || channel === 'text') window.location.href = `${channel === 'call' ? 'tel' : 'sms'}:${state.session.russellPhone}`;
   };
   try { await action(); }
@@ -389,7 +446,7 @@ async function loadHandoff(id) {
     heading.focus();
   };
   try { await action(); }
-  catch (error) { showRecovery(error, action); }
+  catch (error) { showRecovery(error, action, 'russell'); }
 }
 
 initialize();
