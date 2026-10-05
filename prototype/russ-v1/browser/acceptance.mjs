@@ -201,6 +201,7 @@ await acceptance('failed send preserves draft and exposes visible recovery with 
   await page.locator('#composer button[type="submit"]').click();
   await page.locator('#recoveryPanel').waitFor({ state: 'visible' });
   assert.equal(await page.locator('#messageInput').inputValue(), 'Keep this draft');
+  await page.waitForFunction(() => document.activeElement?.id === 'recoveryTitle');
   assert.equal(await page.evaluate(() => document.activeElement?.id), 'recoveryTitle');
   assert.equal(await page.locator('#retryButton').isVisible(), true);
   await context.close();
