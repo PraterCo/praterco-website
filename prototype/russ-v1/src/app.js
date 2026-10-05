@@ -173,8 +173,10 @@ export function createHandler({ config, store }) {
         const body = await readJson(req);
         if (body.developmentConsent !== true || body.noticeVersion !== DEVELOPMENT_NOTICE) throw new HttpError(400, 'Choose the private-review retention option before starting.', 'validation');
         const conversation = store.createConversation(session.user.id, BEHAVIOR_VERSION, DEVELOPMENT_NOTICE);
-        store.saveWorkingState(conversation.id, BEHAVIOR_VERSION, emptyWorkingState());
         const turn = initialTurn();
+        const initialState = emptyWorkingState();
+        if (turn.topic) initialState.askedTopics.push(turn.topic);
+        store.saveWorkingState(conversation.id, BEHAVIOR_VERSION, initialState);
         store.addMessage(conversation.id, 'russ', turn.text, turn.mode);
         return send(res, 201, { conversation: visitorConversation(store.getConversation(conversation.id, session.user.id)), controls: visitorControls(turn) });
       }
