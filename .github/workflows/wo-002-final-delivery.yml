@@ -1,0 +1,33 @@
+name: WO-002 final delivery checks
+
+on:
+  pull_request:
+    branches:
+      - test/wo-002-final-delivery-pass
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Install browser test dependency
+        working-directory: prototype/russ-v1
+        run: npm install --no-save playwright@1.55.0
+      - name: Install Chromium
+        working-directory: prototype/russ-v1
+        run: npx playwright install --with-deps chromium
+      - name: Syntax checks
+        working-directory: prototype/russ-v1
+        run: npm run check
+      - name: Existing automated suite
+        working-directory: prototype/russ-v1
+        run: npm test
+      - name: Rendered browser acceptance
+        working-directory: prototype/russ-v1
+        run: npm run test:browser
