@@ -326,7 +326,7 @@ export function selectNextMove({ text, previousState, messages = [], now = new D
   if (signals.human) {
     const declined = /don'?t (send|share)|do not (send|share)|without sharing|don'?t share this conversation|do not share this conversation/.test(intentText);
     const providedContact = state.facts.contactValue?.status === 'current' ? { method: state.facts.contactMethod?.value || 'contact', replyTo: state.facts.contactValue.value } : null;
-    const wantsContact = /call me|text me/.test(intentText);
+    const wantsContact = /call me|text me|russell\s+(to\s+)?(contact|call|text|reach out|get in touch)\s*(with\s+me|me)?|(?:have|ask)\s+russell\s+(to\s+)?(contact|call|text|reach out|get in touch)\s*(with\s+me|me)?|russell\s+can\s+(contact|call|text|reach out|get in touch)\s*(with\s+me|me)?/.test(intentText);
     const contactText = wantsContact && providedContact
       ? `You can continue with Russell now. You asked him to contact you using the ${providedContact.method === 'email' ? 'email address' : 'number'} you provided. I can use it only for that follow-up request; it does not share this conversation or authorize other use. Conversation context remains a separate choice.`
       : 'You can continue with Russell now. Call or text without sharing this conversation, or ask Russell to contact you with only the contact information needed for that request.';
