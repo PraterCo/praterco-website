@@ -6,7 +6,7 @@
   "scripts": {
     "start": "node src/server.js",
     "test": "node --test",
-    "check": "node --check src/*.js && node --check public/*.js && node --check scripts/*.js",
+    "check": "node --check src/*.js && node --check public/*.js && node --check scripts/*.js && node --check scripts/*.mjs && node --check browser/*.mjs",
     "backup": "node scripts/backup.js",
     "test:browser": "node browser/acceptance.mjs",
     "russell:test": "node scripts/russell-test-local.mjs"
