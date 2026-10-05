@@ -1,3 +1,4 @@
+import { draftAfterRequest } from './ui-state.js';
 const $ = (selector) => document.querySelector(selector);
 const state = { session: null, conversation: null, pendingResume: null, lastAction: null, russellLastAction: null };
 
@@ -279,14 +280,13 @@ async function submitMessage(explicitContent = null) {
     try {
       const data = await api(`/api/conversations/${state.conversation.id}/messages`, { method: 'POST', body: JSON.stringify({ content }) });
       state.conversation = data.conversation;
-      if (explicitContent === null && input.value === draftAtSubmission) input.value = '';
+      input.value = draftAfterRequest({ submittedDraft: draftAtSubmission, currentDraft: input.value, explicitContent, succeeded: true });
       renderConversation(data.controls);
     } finally { setBusy(false); }
   };
   try { await action(); }
   catch (error) {
-    if (explicitContent === null && input.value === draftAtSubmission) input.value = draftAtSubmission;
-    if (explicitContent !== null && !input.value) input.value = explicitContent;
+    input.value = draftAfterRequest({ submittedDraft: draftAtSubmission, currentDraft: input.value, explicitContent, succeeded: false });
     setBusy(false);
     setText('#messageError', `${error.message} Your draft is still here.`);
     showRecovery(error, action);
