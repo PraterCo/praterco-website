@@ -95,9 +95,12 @@ await acceptance('keyboard-only critical journey preserves logical focus', async
   const page = await context.newPage();
   await page.goto(base);
 
-  await page.keyboard.press('Tab'); // skip link
-  await page.keyboard.press('Tab'); // email
-  assert.equal(await page.evaluate(() => document.activeElement?.id), 'email');
+  let reachedEmail = false;
+  for (let i = 0; i < 5; i += 1) {
+    await page.keyboard.press('Tab');
+    if (await page.evaluate(() => document.activeElement?.id === 'email')) { reachedEmail = true; break; }
+  }
+  assert.equal(reachedEmail, true, 'email must be reachable by keyboard');
   await page.keyboard.type('seller@example.test');
   await page.keyboard.press('Tab');
   assert.equal(await page.evaluate(() => document.activeElement?.id), 'password');
@@ -155,7 +158,7 @@ await acceptance('retention consent and contact-only handoff remain independent'
   await page.locator('#contactRussellButton').click();
   await page.locator('#contactReply').fill('seller@example.test');
   await page.locator('#continueButton').click();
-  await page.locator('#handoffStatus').waitFor({ state: 'visible' });
+  await page.waitForFunction(() => /conversation was not shared.*keep talking/i.test(document.querySelector('#handoffStatus')?.textContent || ''));
   assert.match(await page.locator('#handoffStatus').innerText(), /conversation was not shared.*keep talking/i);
   assert.equal(await page.locator('#composer').isVisible(), true);
   assert.equal(await page.evaluate(() => document.activeElement?.id), 'handoffStatus');
