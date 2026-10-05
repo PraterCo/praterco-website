@@ -325,6 +325,7 @@ export function createHandler({ config, store }) {
       const staticFiles = {
         '/': [path.join(publicDir, 'index.html'), 'text/html; charset=utf-8'],
         '/app.js': [path.join(publicDir, 'app.js'), 'text/javascript; charset=utf-8'],
+        '/ui-state.js': [path.join(publicDir, 'ui-state.js'), 'text/javascript; charset=utf-8'],
         '/styles.css': [path.join(publicDir, 'styles.css'), 'text/css; charset=utf-8'],
         '/prater-logo.png': [path.join(repoAssetsDir, 'prater-logo.png'), 'image/png']
       };
