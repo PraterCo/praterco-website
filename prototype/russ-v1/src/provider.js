@@ -9,7 +9,13 @@ export const MODES = Object.freeze({
 });
 
 const clean = (value = '') => value.trim().replace(/\s+/g, ' ');
-const has = (text, pattern) => pattern.test(text.toLowerCase());
+const normalizeForIntent = (value = '') => clean(value)
+  .normalize('NFKC')
+  .replace(/[\u2018\u2019\u201B\u2032]/g, "'")
+  .replace(/[\u201C\u201D\u2033]/g, '"')
+  .replace(/[\u2013\u2014]/g, '-')
+  .toLowerCase();
+const has = (text, pattern) => pattern.test(normalizeForIntent(text));
 const unique = (items) => [...new Set(items)];
 
 export function emptyWorkingState() {
@@ -21,27 +27,28 @@ export function emptyWorkingState() {
 }
 
 function classify(text) {
+  const lower = normalizeForIntent(text);
   return {
-    human: has(text, /\b(talk|speak|connect)\s+(to|with)\s+russell\b|\b(call|text)\s+russell\b|\bi just want (to )?(talk|speak)\b|\bcall me\b|\btext me\b/),
-    correction: has(text, /^(no[, ]|actually\b|correction\b|i meant\b)|\byou (already )?asked\b|\bi (already )?(said|told you)\b|\bnot (this|next) (spring|summer|fall|winter|year)\b/),
-    dontKnow: has(text, /\b(i don'?t know|not sure yet|no idea)\b/),
-    skip: has(text, /\b(skip|rather not answer|don'?t want to answer)\b/),
-    pause: has(text, /\b(pause|stop for now|come back later|need a break)\b/),
-    stopQuestions: has(text, /\bstop asking|why do you keep asking|no more questions|just tell me what (i|we) should do\b/),
-    changeTopic: has(text, /\b(change (the )?topic|talk about .+ instead|can we talk about)\b/),
-    frustration: has(text, /\b(frustrat|annoy|keep asking|already told|not listening)\b/),
-    returning: has(text, /^(i'?m|i am) back\b|\bback again\b|\bpicking this back up\b/),
-    direct: text.includes('?') || has(text, /^(should|can|could|do|does|is|are|will|what|how|when|where|why)\b/),
-    sensitive: has(text, /\b(died|death|passed away|bereave|widow|widower|separat|divorc|behind on payments|foreclos|bankrupt|inherited|inheritance|co-owner.+(health|medical|debt|financial)|coowner.+(health|medical|debt|financial))\b/)
+    human: /\b(talk|speak|connect)\s+(to|with)\s+russell\b|\b(call|text)\s+russell\b|\bi just want (to )?(talk|speak)\b|\bcall me\b|\btext me\b|\b(i want|i'd like|id like|please|can you|could you|would you)\s+russell\s+(to\s+)?(contact|call|text|reach out|get in touch)\s*(with\s+me|me)?\b|\b(have|ask)\s+russell\s+(to\s+)?(contact|call|text|reach out|get in touch)\s*(with\s+me|me)?\b|\brussell\s+can\s+(contact|call|text|reach out|get in touch)\s*(with\s+me|me)?\b/.test(lower),
+    correction: /^(no[, ]|actually\b|correction\b|i meant\b)|\byou (already )?asked\b|\bi (already )?(said|told you)\b|\bnot (this|next) (spring|summer|fall|winter|year)\b/.test(lower),
+    dontKnow: /\b(i don'?t know|i'?m not sure|i can'?t decide|not sure yet|no idea)\b/.test(lower),
+    skip: /\b(skip|rather not answer|don'?t want to answer)\b/.test(lower),
+    pause: /\b(pause|stop for now|come back later|need a break)\b/.test(lower),
+    stopQuestions: /\bstop asking|why do you keep asking|no more questions|just tell me what (i|we) should do\b/.test(lower),
+    changeTopic: /\b(change (the )?topic|talk about .+ instead|can we talk about)\b/.test(lower),
+    frustration: /\b(frustrat|annoy|keep asking|already told|not listening)\b/.test(lower),
+    returning: /^(i'?m|i am) back\b|\bback again\b|\bpicking this back up\b/.test(lower),
+    direct: text.includes('?') || /^(should|can|could|do|does|is|are|will|what|how|when|where|why|which)\b/.test(lower),
+    sensitive: /\b(died|death|passed away|bereave|widow|widower|separat|divorc|behind on payments|foreclos|bankrupt|inherited|inheritance|co-owner.+(health|medical|debt|financial)|coowner.+(health|medical|debt|financial))\b/.test(lower)
   };
 }
 
 function detectDomain(text) {
-  const lower = text.toLowerCase();
+  const lower = normalizeForIntent(text);
   if (/capital[- ]?gains?|\btax(es)?\b|taxable|basis|exclusion/.test(lower)) return 'tax';
   if (/\bdeed\b|\btitle\b|probate|legal|court order|ex.+deed|authority to sell/.test(lower)) return 'legal';
+  if (/\b(buy|buying|purchase)\b.*\b(before|first)\b.*\b(sell|selling)\b|\b(sell|selling)\b.*\b(before|first)\b.*\b(buy|buying|purchase)\b|\b(buy|buying)\s+first\b|\b(sell|selling)\s+first\b|\bwhich should happen first\b.*\b(buy|buying)\b.*\b(sell|selling)\b|\banother (house|home) before selling (this|our|my) (one|house|home)\b|\bbefore (this|our|my) (one|house|home) sells\b|two payments|bridge loan/.test(lower)) return 'buy-before-sell';
   if (/qualif|mortgage|\bloan\b|lender|interest rate|payment|financ(e|ing)/.test(lower)) return 'lending';
-  if (/buy first|sell first|before (this|our|my) (one|house|home) sells|two payments|bridge loan/.test(lower)) return 'buy-before-sell';
   if (/what.+worth|home value|house value|\bapprais|listing price|price estimate|how much.+(home|house)/.test(lower)) return 'value';
   if (/foundation|structural|engineer|\bcrack\b|roof|contractor|construction|repair|renovat|remodel/.test(lower)) return 'construction';
   if (/\brent(al|ing)?\b|investment|landlord|cash flow|cap rate|tenant/.test(lower)) return 'investment';
@@ -50,18 +57,28 @@ function detectDomain(text) {
 }
 
 function extractTimeline(text) {
-  const lower = text.toLowerCase();
+  const lower = normalizeForIntent(text);
   const patterns = [
     [/next spring/, 'next spring'], [/this spring/, 'this spring'], [/next summer/, 'next summer'], [/this summer/, 'this summer'],
     [/next fall|next autumn/, 'next fall'], [/this fall|this autumn/, 'this fall'], [/next winter/, 'next winter'], [/this winter/, 'this winter'],
     [/six weeks|6 weeks/, 'about six weeks'], [/three months|3 months/, 'about three months'], [/six months|6 months/, 'about six months'],
     [/later this year/, 'later this year'], [/next year/, 'next year'],
-    [/\b(january|february|march|april|may|june|july|august|september|october|november|december)\b/, (match) => match[1]],
     [/no fixed (time|timing)|not sure when|no timeline|timing is open/, 'no fixed timing']
   ];
   for (const [pattern, value] of patterns) {
     const match = lower.match(pattern);
-    if (match) return typeof value === 'function' ? value(match) : value;
+    if (match) return value;
+  }
+
+  const monthNames = 'january|february|march|april|may|june|july|august|september|october|november|december';
+  const monthPatterns = [
+    new RegExp(`\\b(?:in|this|by|around|during|for)\\s+(${monthNames})\\b`),
+    new RegExp(`\\b(list|listing|sell|selling|move|moving|close|closing)\\s+(?:in|by|around|during)?\\s*(${monthNames})\\b`),
+    new RegExp(`\\bmaybe\\s+(${monthNames})(?:\\s+or\\s+(${monthNames}))?\\b`)
+  ];
+  for (const pattern of monthPatterns) {
+    const match = lower.match(pattern);
+    if (match) return match[2] || match[1];
   }
   return null;
 }
@@ -75,7 +92,7 @@ function extractContact(text) {
 }
 
 function meaningFrom(text) {
-  const lower = text.toLowerCase();
+  const lower = normalizeForIntent(text);
   const topics = [], priorities = [], tensions = [], sensitivities = [], uncertainties = [], facts = {};
   const timeline = extractTimeline(text);
   if (timeline) facts.timeline = timeline;
@@ -294,6 +311,7 @@ function generalSellDecisionDirection(state) {
 
 export function selectNextMove({ text, previousState, messages = [], now = new Date().toISOString() }) {
   const content = clean(text);
+  const intentText = normalizeForIntent(content);
   const signals = classify(content);
   const domain = detectDomain(content);
   const preparedState = refreshWorkingState(previousState, now);
@@ -302,13 +320,13 @@ export function selectNextMove({ text, previousState, messages = [], now = new D
   const acknowledgment = specificAcknowledgement(state, content);
 
   if (signals.returning && hadStaleTimeline && state.facts.timeline?.status === 'stale') return { mode: MODES.CLARIFY, state, text: 'Welcome back. The earlier timing may no longer be current, so I will not assume it still applies. Does that plan still fit, or would you rather correct it, change the topic, or start over?', quickReplies: ['It still applies', 'Correct the timing', 'Change topic', 'Start over'] };
-  if (/only gets? the summary|what (will|do) (be )?shared|what do you share/.test(content.toLowerCase())) return { mode: MODES.ANSWER, state, text: 'Russell would receive the ordered conversation, including corrections and any confirmed understanding. A generated summary may be included only as a supplement, not a replacement. Nothing is transferred unless you separately agree, and you can call or text without sharing the conversation.', offerHuman: true };
-  if (/how ready|readiness|what are you still missing|score me|profile me/.test(content.toLowerCase())) return { mode: MODES.ANSWER, state, text: 'I do not score your readiness or show a hidden profile or missing-information list. I can offer a plain recap of the decision considerations you have chosen to share and let you correct it, or help with the next useful question you choose.' };
+  if (/only gets? the summary|what (will|do) (be )?shared|what do you share/.test(intentText)) return { mode: MODES.ANSWER, state, text: 'Russell would receive the ordered conversation, including corrections and any confirmed understanding. A generated summary may be included only as a supplement, not a replacement. Nothing is transferred unless you separately agree, and you can call or text without sharing the conversation.', offerHuman: true };
+  if (/how ready|readiness|what are you still missing|score me|profile me/.test(intentText)) return { mode: MODES.ANSWER, state, text: 'I do not score your readiness or show a hidden profile or missing-information list. I can offer a plain recap of the decision considerations you have chosen to share and let you correct it, or help with the next useful question you choose.' };
   if (signals.direct && /\bshould (i|we) (sell|list)( (the|our|my) (home|house|property))?\b/i.test(content)) return { mode: MODES.ANSWER, state, text: generalSellDecisionDirection(state), offerHuman: false };
   if (signals.human) {
-    const declined = /don'?t (send|share)|do not (send|share)|without sharing/.test(content.toLowerCase());
+    const declined = /don'?t (send|share)|do not (send|share)|without sharing|don'?t share this conversation|do not share this conversation/.test(intentText);
     const providedContact = state.facts.contactValue?.status === 'current' ? { method: state.facts.contactMethod?.value || 'contact', replyTo: state.facts.contactValue.value } : null;
-    const wantsContact = /call me|text me/.test(content.toLowerCase());
+    const wantsContact = /call me|text me/.test(intentText);
     const contactText = wantsContact && providedContact
       ? `You can continue with Russell now. You asked him to contact you using the ${providedContact.method === 'email' ? 'email address' : 'number'} you provided. I can use it only for that follow-up request; it does not share this conversation or authorize other use. Conversation context remains a separate choice.`
       : 'You can continue with Russell now. Call or text without sharing this conversation, or ask Russell to contact you with only the contact information needed for that request.';
@@ -317,14 +335,14 @@ export function selectNextMove({ text, previousState, messages = [], now = new D
   if (signals.correction) {
     const currentCorrection = state.corrections.at(-1);
     const corrected = currentCorrection ? ` I’ll use the corrected ${currentCorrection.field === 'timeline' ? `timing, ${currentCorrection.current}` : 'information'} going forward.` : '';
-    return { mode: signals.frustration || /already/.test(content.toLowerCase()) ? MODES.RECOVER : MODES.CONFIRM, state, text: `You’re right to correct that.${corrected} I won’t ask you to repeat it.`, understanding: buildUnderstanding(state), isCorrection: true };
+    return { mode: signals.frustration || /already/.test(intentText) ? MODES.RECOVER : MODES.CONFIRM, state, text: `You’re right to correct that.${corrected} I won’t ask you to repeat it.`, understanding: buildUnderstanding(state), isCorrection: true };
   }
   if (signals.pause) return { mode: MODES.PAUSE, state, text: 'We can pause here. Your private conversation remains available when you return, and you can also continue directly with Russell at any time.', offerHuman: true };
   if (signals.stopQuestions || signals.frustration) return { mode: MODES.RECOVER, state, text: `You’re right. Another discovery question would not help now. ${directionForState(state)}`, offerHuman: true };
   if (signals.skip || signals.changeTopic || /rather not answer|can we talk about .+ instead/i.test(content)) return { mode: domain ? MODES.BOUNDARY : MODES.DIRECTION, state, text: `We can leave that question there. ${domain ? boundaryResponse(domain) : directionForState(state)}`, offerHuman: false };
   if (signals.sensitive && !signals.direct) return { mode: MODES.DIRECTION, state, text: `${acknowledgment} ${directionForState(state)}`.trim(), offerHuman: true, quickReplies: ['Pause here', 'One practical next step', 'Talk with Russell'] };
   if (signals.dontKnow) return { mode: MODES.DIRECTION, state, text: `It is fine not to know yet. ${directionForState(state)}`, quickReplies: ['Give me a simple comparison', 'Pause here', 'Talk with Russell'] };
-  if (/\b(low|2\.75|2\.\d+)\b.+\b(rate|mortgage)\b|\b(rate|mortgage)\b.+\b(give it up|lose|low)\b/.test(content.toLowerCase()) && !signals.direct) return { mode: MODES.DIRECTION, state, text: `${acknowledgment} Comparing total housing cost, transition risk, and the reason for moving is more useful than treating the rate alone as the decision. A lender should verify any financing path from actual finances.`.trim() };
+  if (/\b(low|2\.75|2\.\d+)\b.+\b(rate|mortgage)\b|\b(rate|mortgage)\b.+\b(give it up|lose|low)\b/.test(intentText) && !signals.direct) return { mode: MODES.DIRECTION, state, text: `${acknowledgment} Comparing total housing cost, transition risk, and the reason for moving is more useful than treating the rate alone as the decision. A lender should verify any financing path from actual finances.`.trim() };
   if (domain) return { mode: domain === 'market-timing' || domain === 'buy-before-sell' ? MODES.ANSWER : MODES.BOUNDARY, state, text: `${acknowledgment ? `${acknowledgment} ` : ''}${boundaryResponse(domain)}`, offerHuman: ['legal', 'tax', 'lending', 'value', 'construction'].includes(domain) };
   if (signals.sensitive) return { mode: MODES.DIRECTION, state, text: `${acknowledgment} ${directionForState(state)}`.trim(), offerHuman: true, quickReplies: ['Pause here', 'One practical next step', 'Talk with Russell'] };
   if (shouldConfirm(state)) return { mode: MODES.CONFIRM, state, text: acknowledgment, understanding: buildUnderstanding(state) };
