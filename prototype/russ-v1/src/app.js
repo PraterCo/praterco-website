@@ -142,6 +142,17 @@ export function createHandler({ config, store }) {
         return send(res, 200, { user: session.user, csrf: session.csrf, developmentNoticeVersion: DEVELOPMENT_NOTICE, handoffNoticeVersion: HANDOFF_NOTICE, russellPhone: config.russellPhone });
       }
 
+      if (method === 'POST' && url.pathname === '/api/contact-requests') {
+        const session = requireSession(req, store, 'participant');
+        requireCsrf(req, session);
+        const body = await readJson(req);
+        const name = String(body.contact?.name || '').trim();
+        const replyTo = String(body.contact?.replyTo || '').trim();
+        if (!replyTo || name.length > 120 || replyTo.length > 200) throw new HttpError(400, 'A phone number or email is required for the contact request.', 'validation');
+        const request = store.createContactRequest(session.user.id, { ...(name ? { name } : {}), replyTo });
+        return send(res, 201, { continuation: { state: 'ready', channel: 'contact', contextShared: false, requestId: request.id } });
+      }
+
       if (method === 'POST' && url.pathname === '/api/logout') {
         const session = requireSession(req, store);
         requireCsrf(req, session);
@@ -257,21 +268,25 @@ export function createHandler({ config, store }) {
           if (!replyTo || name.length > 120 || replyTo.length > 200) throw new HttpError(400, 'A phone number or email is required for the contact request.', 'validation');
           contact = { ...(name ? { name } : {}), replyTo };
         }
+        if (body.channel === 'contact' && !shareContext) {
+          const request = store.createContactRequest(session.user.id, contact, conversation.id);
+          return send(res, 201, { continuation: { state: 'ready', channel: 'contact', contextShared: false, requestId: request.id, conversationState: 'active' } });
+        }
         const summary = shareContext ? buildUnderstanding(conversation.workingState || emptyWorkingState()).replace(/ Is that.+$/, '') : null;
         const handoff = store.createHandoff(conversation, session.user.id, body.channel, HANDOFF_NOTICE, contact, summary, shareContext);
-        return send(res, 201, { continuation: { state: 'ready', channel: handoff.channel, contextShared: handoff.contextShared } });
+        return send(res, 201, { continuation: { state: 'ready', channel: handoff.channel, contextShared: handoff.contextShared, conversationState: shareContext ? 'shared' : 'active' } });
       }
 
       if (method === 'GET' && url.pathname === '/api/russell/handoffs') {
         requireSession(req, store, 'russell');
-        const handoffs = store.listHandoffs().map((item) => ({ id: item.id, channel: item.channel, state: item.status, receivedAt: item.consented_at }));
+        const handoffs = store.listContinuations().map((item) => ({ id: item.id, channel: item.channel, state: item.status, receivedAt: item.receivedAt }));
         return send(res, 200, { handoffs });
       }
 
       const russellHandoffMatch = url.pathname.match(/^\/api\/russell\/handoffs\/([0-9a-f-]+)$/);
       if (russellHandoffMatch && method === 'GET') {
         const session = requireSession(req, store, 'russell');
-        const handoff = store.getHandoff(russellHandoffMatch[1], session.user.id);
+        const handoff = store.getContinuation(russellHandoffMatch[1], session.user.id);
         if (!handoff) throw new HttpError(404, 'Continuation request was not found.', 'data');
         return send(res, 200, { handoff });
       }
