@@ -74,6 +74,22 @@
           </label>
           <button class="primary" id="consentStartButton" type="button">Agree and start</button>
           <p class="form-error" id="startStatus" role="alert"></p>
+
+          <section class="precontact" id="preContactPanel" hidden aria-labelledby="preContactTitle">
+            <p class="eyebrow">Continue with Russell</p>
+            <h2 id="preContactTitle" tabindex="-1">Ask Russell to contact you.</h2>
+            <p>This sends only the contact detail needed for Russell to follow up. It does not start, retain, or share a Russ conversation.</p>
+            <label for="preContactName">Name <span class="optional">(optional)</span></label>
+            <input id="preContactName" maxlength="120" autocomplete="name">
+            <label for="preContactReply">Phone number or email</label>
+            <input id="preContactReply" maxlength="200" autocomplete="email">
+            <div class="button-row">
+              <button class="primary" id="preContactSubmit" type="button">Send contact request</button>
+              <button class="secondary" id="preContactClose" type="button">Back</button>
+            </div>
+            <p class="form-error" id="preContactError" role="alert"></p>
+            <p class="form-status" id="preContactStatus" role="status" tabindex="-1"></p>
+          </section>
         </div>
 
         <section class="resume-panel" id="resumePanel" hidden aria-labelledby="resumeTitle">
@@ -141,7 +157,7 @@
               <button class="secondary" id="closeHandoffButton" type="button">Keep talking with Russ</button>
             </div>
             <p class="form-error" id="handoffError" role="alert"></p>
-            <p class="form-status" id="handoffStatus" role="status"></p>
+            <p class="form-status" id="handoffStatus" role="status" tabindex="-1"></p>
           </section>
 
           <form id="composer" class="composer">
@@ -173,7 +189,17 @@
 
     <section class="review-shell" id="russellView" hidden>
       <aside class="review-list"><p class="eyebrow">Consented handoffs</p><h1>Russell review</h1><p>Only contact requests and conversations shared for follow-up appear here.</p><div id="handoffList"></div></aside>
-      <section class="handoff-detail" id="handoffDetail" aria-live="polite"><h2>Select a handoff</h2></section>
+      <section class="handoff-detail">
+        <section class="recovery" id="russellRecoveryPanel" hidden aria-labelledby="russellRecoveryTitle">
+          <h2 id="russellRecoveryTitle" tabindex="-1">We couldn’t load that request.</h2>
+          <p id="russellRecoveryMessage">Your signed-in review session is still active.</p>
+          <div class="button-row">
+            <button class="primary" id="russellRetryButton" type="button">Retry</button>
+            <button class="secondary" id="russellRecoveryBackButton" type="button">Back to requests</button>
+          </div>
+        </section>
+        <div id="handoffDetail" aria-live="polite"><h2 tabindex="-1">Select a handoff</h2></div>
+      </section>
     </section>
 
     <section class="review-shell" id="reviewerView" hidden>
