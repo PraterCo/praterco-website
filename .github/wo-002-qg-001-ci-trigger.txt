@@ -1,1 +1,2 @@
 Temporary QG-001 verification trigger. Do not merge.
+Second trigger after workflow registration.
