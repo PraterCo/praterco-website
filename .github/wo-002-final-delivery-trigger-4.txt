@@ -1,1 +1,2 @@
 Final browser verification trigger. Do not merge.
+Second trigger after workflow registration.
