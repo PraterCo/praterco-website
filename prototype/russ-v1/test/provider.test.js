@@ -202,3 +202,87 @@ test('general direct sell question receives bounded useful direction before disc
   noPrivateLabels(result.text);
   noGenericPseudoEmpathy(result.text);
 });
+
+
+test('QG-001-F01 buy-before-sell wording variants receive bounded direct answer', () => {
+  const variants = [
+    'Should I buy before I sell?',
+    'Should we buy before selling?',
+    'Do I sell before buying?',
+    'Should I sell my house first?',
+    'Can I buy another house before selling this one?',
+    'Buy first or sell first?',
+    'Which should happen first, buying or selling?'
+  ];
+  for (const input of variants) {
+    const result = move(input);
+    assert.equal(result.mode, MODES.ANSWER, input);
+    assert.match(result.text, /buying first|selling first|licensed lender/i, input);
+    assert.doesNotMatch(result.text, /what put selling on your mind/i, input);
+  }
+});
+
+test('QG-001-F02 natural-language Russell contact requests outrank discovery', () => {
+  const variants = [
+    'I want Russell to contact me.',
+    'Have Russell contact me.',
+    'Can Russell reach out to me?',
+    'Ask Russell to call me.',
+    "I'd like Russell to get in touch with me.",
+    'Russell can contact me.',
+    "Please have Russell contact me, but don't share this conversation."
+  ];
+  for (const input of variants) {
+    const result = move(input);
+    assert.equal(result.mode, MODES.HUMAN, input);
+    assert.equal(result.contactRequested, true, input);
+    assert.doesNotMatch(result.text, /what put selling on your mind/i, input);
+  }
+  const declined = move("I want Russell to contact me, but do not share this conversation.");
+  assert.match(declined.text, /will not transfer|do not share|does not share/i);
+});
+
+test('QG-001-F03 modal may never creates a May timeline', () => {
+  for (const input of ['I may sell.', 'I may face foreclosure.', 'We may move.', 'It may make sense to wait.', 'I am behind on payments and may face foreclosure.']) {
+    const result = move(input);
+    assert.equal(result.state.facts.timeline, undefined, input);
+    assert.doesNotMatch(buildUnderstanding(result.state), /current timing is may/i, input);
+  }
+});
+
+test('QG-001-F03 legitimate May month context remains recognized', () => {
+  for (const input of ['I want to sell in May.', 'We are thinking about listing this May.', 'Maybe May or June.', 'By May we need to move.']) {
+    const result = move(input);
+    assert.ok(result.state.facts.timeline, input);
+    assert.match(String(result.state.facts.timeline.value), /may|june/i, input);
+  }
+});
+
+test('QG-001-F04 smart punctuation and ASCII punctuation interpret equivalently', () => {
+  const pairs = [
+    ["I don't know.", "I don’t know."],
+    ["I'm not sure.", "I’m not sure."],
+    ["I can't decide.", "I can’t decide."]
+  ];
+  for (const [ascii, smart] of pairs) {
+    const a = move(ascii);
+    const b = move(smart);
+    assert.equal(a.mode, MODES.DIRECTION, ascii);
+    assert.equal(b.mode, MODES.DIRECTION, smart);
+    assert.equal(a.text, b.text);
+  }
+});
+
+test('approved intent robustness covers correction skip pause topic and supplied contact variants', () => {
+  const correction = move('Actually — next spring.');
+  assert.ok([MODES.CONFIRM, MODES.RECOVER].includes(correction.mode));
+  assert.equal(correction.state.facts.timeline.value, 'next spring');
+
+  assert.ok([MODES.DIRECTION, MODES.BOUNDARY].includes(move("I'd rather not answer that.").mode));
+  assert.equal(move('I need a break.').mode, MODES.PAUSE);
+  assert.ok([MODES.DIRECTION, MODES.BOUNDARY].includes(move('Can we talk about repairs instead?').mode));
+
+  const contact = move('Please have Russell call me at 555-0100.');
+  assert.equal(contact.mode, MODES.HUMAN);
+  assert.equal(contact.providedContact.replyTo, '555-0100');
+});
